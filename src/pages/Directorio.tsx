@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { SupabaseStatus } from '../components/SupabaseStatus'
 import { AttendanceList } from '../components/AttendanceList'
 import { SessionNotesEditor } from '../components/SessionNotesEditor'
