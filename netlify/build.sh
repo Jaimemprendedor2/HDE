@@ -9,9 +9,13 @@ echo "🚀 Starting Netlify build process..."
 export NODE_ENV=development
 export CI=true
 
-# Install dependencies
+# Clear npm cache to avoid version conflicts
+echo "🧹 Clearing npm cache..."
+npm cache clean --force
+
+# Install dependencies with specific flags
 echo "📦 Installing dependencies..."
-npm install --no-fund --no-audit
+npm install --legacy-peer-deps --no-fund --no-audit
 
 # Generate build info
 echo "📋 Generating build info..."
