@@ -9,13 +9,21 @@ echo "🚀 Starting Netlify build process..."
 export NODE_ENV=development
 export CI=true
 
+# Check Node.js and npm versions
+echo "📋 Checking versions..."
+node --version
+npm --version
+
 # Install dependencies
 echo "📦 Installing dependencies..."
-npm install --legacy-peer-deps
+npm install --legacy-peer-deps --no-fund --no-audit
 
-# Generate build info
+# Create public directory if it doesn't exist
+mkdir -p public
+
+# Generate build info (with error handling)
 echo "📋 Generating build info..."
-node scripts/build-info.js
+node scripts/build-info.js || echo "⚠️ Build info generation failed, continuing..."
 
 # Build the application
 echo "🏗️ Building application..."
