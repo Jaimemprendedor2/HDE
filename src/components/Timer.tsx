@@ -410,4 +410,3 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     </div>
   )
 }
-}
