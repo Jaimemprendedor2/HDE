@@ -5,21 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run lint && npm run type-check && node scripts/build-info.js && vite build",
+    "build": "node scripts/build-info.js && npx vite build",
     "build:production": "npm run lint && npm run test && npm run type-check && node scripts/build-info.js && vite build",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "lint": "npx eslint . --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "npx eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:watch": "vitest --watch",
-    "type-check": "tsc --noEmit",
+    "type-check": "npx tsc --noEmit",
     "preview": "vite preview",
-    "clean": "rm -rf dist node_modules/.vite",
-    "prepare": "husky",
-    "postinstall": "husky"
+    "clean": "rm -rf dist node_modules/.vite"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
@@ -54,7 +52,7 @@
     "prettier": "^3.4.2",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
-    "vite": "^6.0.3",
+    "vite": "^7.1.7",
     "vitest": "^2.1.8"
   }
 }

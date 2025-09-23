@@ -6,7 +6,7 @@
   publish = "dist"
   
   # Default build command
-  command = "bash netlify/build.sh"
+  command = "npm ci && node scripts/build-info.js && npx vite build"
 
 [build.environment]
   # Node.js version
