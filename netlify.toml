@@ -5,8 +5,8 @@
   # Directory that contains the deploy-ready HTML files and assets
   publish = "dist"
   
-  # Default build command
-  command = "bash netlify/build.sh"
+  # Default build command (using Node.js build)
+  command = "node netlify/build-node.js"
 
 [build.environment]
   # Node.js version
