@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { timerChannel, TimerState } from '../lib/timerChannel'
 
 interface Stage {
   id: string
@@ -22,15 +23,17 @@ interface TimerProps {
 export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
   // Estado del timer
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
-  const [isRunning, setIsRunning] = useState(false)
   const [remainingSeconds, setRemainingSeconds] = useState(0)
-  const [startTime, setStartTime] = useState<number | null>(null)
-  const [pausedTime, setPausedTime] = useState(0)
   const [adjustments, setAdjustments] = useState(0)
+  const [timerState, setTimerState] = useState<TimerState>({
+    elapsedMs: 0,
+    running: false,
+    timestamp: 0
+  })
   
   // Referencias para el loop de actualización
   const animationFrameRef = useRef<number>()
-  const lastUpdateRef = useRef<number>(Date.now())
+  const unsubscribeRef = useRef<(() => void) | null>(null)
 
   // Inicializar con la primera etapa cuando cambien las etapas
   useEffect(() => {
@@ -39,12 +42,29 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
       const firstStage = sortedStages[0]
       setCurrentStageIndex(0)
       setRemainingSeconds(firstStage.duration)
-      setIsRunning(false)
-      setStartTime(null)
-      setPausedTime(0)
       setAdjustments(0)
     }
   }, [stages])
+
+  // Conectar al timerChannel al montar
+  useEffect(() => {
+    // Conectar al canal del cronómetro
+    timerChannel.connect()
+    
+    // Leer estado inicial
+    timerChannel.readInitialState()
+    
+    // Suscribirse a cambios de estado
+    unsubscribeRef.current = timerChannel.onState((state) => {
+      setTimerState(state)
+    })
+
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current()
+      }
+    }
+  }, [])
 
   // Obtener etapa actual
   const getCurrentStage = () => {
@@ -53,28 +73,24 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     return sortedStages[currentStageIndex] || null
   }
 
-  // Calcular tiempo restante
+  // Calcular tiempo restante basado en el estado del timerChannel
   const calculateRemainingTime = () => {
     const currentStage = getCurrentStage()
     if (!currentStage) return 0
     
     const totalDuration = currentStage.duration + adjustments
-    let elapsed = pausedTime
+    const elapsedSeconds = timerState.elapsedMs / 1000
     
-    if (isRunning && startTime) {
-      elapsed += (Date.now() - startTime) / 1000
-    }
-    
-    return Math.max(0, totalDuration - elapsed)
+    return Math.max(0, totalDuration - elapsedSeconds)
   }
 
-  // Loop de actualización del timer
+  // Loop de actualización del timer usando requestAnimationFrame
   const updateTimer = useCallback(() => {
     const remaining = calculateRemainingTime()
     setRemainingSeconds(remaining)
     
     // Si el tiempo se agotó, ir a la siguiente etapa o pausar
-    if (remaining <= 0 && isRunning) {
+    if (remaining <= 0 && timerState.running) {
       const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
       if (currentStageIndex < sortedStages.length - 1) {
         // Ir a la siguiente etapa
@@ -82,26 +98,24 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
         const nextStage = sortedStages[nextIndex]
         setCurrentStageIndex(nextIndex)
         setRemainingSeconds(nextStage.duration)
-        setIsRunning(false)
-        setStartTime(null)
-        setPausedTime(0)
         setAdjustments(0)
+        // Resetear el cronómetro para la nueva etapa
+        timerChannel.reset()
       } else {
         // Última etapa, pausar
-        setIsRunning(false)
-        setStartTime(null)
+        timerChannel.pause()
       }
     }
     
-    if (isRunning) {
+    // Continuar el loop si el cronómetro está corriendo
+    if (timerState.running) {
       animationFrameRef.current = requestAnimationFrame(updateTimer)
     }
-  }, [isRunning, startTime, pausedTime, adjustments, currentStageIndex, stages])
+  }, [timerState.running, timerState.elapsedMs, adjustments, currentStageIndex, stages])
 
   // Efecto para manejar el loop de actualización
   useEffect(() => {
-    if (isRunning) {
-      lastUpdateRef.current = Date.now()
+    if (timerState.running) {
       animationFrameRef.current = requestAnimationFrame(updateTimer)
     } else {
       if (animationFrameRef.current) {
@@ -114,28 +128,22 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [isRunning, updateTimer])
+  }, [timerState.running, updateTimer])
 
   // Actualizar tiempo restante cuando cambian los ajustes
   useEffect(() => {
-    if (!isRunning) {
+    if (!timerState.running) {
       const remaining = calculateRemainingTime()
       setRemainingSeconds(remaining)
     }
-  }, [adjustments, currentStageIndex])
+  }, [adjustments, currentStageIndex, timerState.running])
 
-  // Controles del timer
+  // Controles del timer usando timerChannel
   const handlePlayPause = () => {
-    if (isRunning) {
-      // Pausar
-      const elapsed = startTime ? (Date.now() - startTime) / 1000 : 0
-      setPausedTime(prev => prev + elapsed)
-      setIsRunning(false)
-      setStartTime(null)
+    if (timerState.running) {
+      timerChannel.pause()
     } else {
-      // Iniciar
-      setIsRunning(true)
-      setStartTime(Date.now())
+      timerChannel.start()
     }
   }
 
@@ -143,10 +151,8 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     const currentStage = getCurrentStage()
     if (currentStage) {
       setRemainingSeconds(currentStage.duration)
-      setIsRunning(false)
-      setStartTime(null)
-      setPausedTime(0)
       setAdjustments(0)
+      timerChannel.reset()
     }
   }
 
@@ -157,10 +163,8 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
       const nextStage = sortedStages[nextIndex]
       setCurrentStageIndex(nextIndex)
       setRemainingSeconds(nextStage.duration)
-      setIsRunning(false)
-      setStartTime(null)
-      setPausedTime(0)
       setAdjustments(0)
+      timerChannel.reset()
     }
   }
 
@@ -171,10 +175,8 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
       const prevStage = sortedStages[prevIndex]
       setCurrentStageIndex(prevIndex)
       setRemainingSeconds(prevStage.duration)
-      setIsRunning(false)
-      setStartTime(null)
-      setPausedTime(0)
       setAdjustments(0)
+      timerChannel.reset()
     }
   }
 
@@ -280,12 +282,12 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
             onClick={handlePlayPause}
             disabled={!isSessionActive}
             className={`px-8 py-4 rounded-lg font-medium text-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-              isRunning
+              timerState.running
                 ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg'
                 : 'bg-green-600 hover:bg-green-700 text-white shadow-lg'
             }`}
           >
-            {isRunning ? (
+            {timerState.running ? (
               <span className="flex items-center">
                 <svg className="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
