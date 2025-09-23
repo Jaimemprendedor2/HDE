@@ -28,3 +28,9 @@ export interface Usuario {
   rol: 'admin' | 'usuario'
   empresaId?: string
 }
+
+// Re-exportar tipos de servicios
+export type * from '../services/types'
+
+// Re-exportar tipos del timer
+export type * from './timer'
