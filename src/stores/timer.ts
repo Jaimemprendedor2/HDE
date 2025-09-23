@@ -183,13 +183,18 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
       const now = performance.now()
       const state = get()
       
-      // Actualizar el timestamp de la última actualización
-      set({ lastUpdateTime: now })
+      // Solo actualizar si realmente cambió el tiempo
+      if (now - state.lastUpdateTime > 100) { // Actualizar máximo cada 100ms
+        set({ lastUpdateTime: now })
+      }
       
-      // Continuar el loop solo si el timer está corriendo o si hay un frame activo
-      if (state.isRunning || state.animationFrameId) {
+      // Continuar el loop solo si el timer está corriendo
+      if (state.isRunning) {
         const animationFrameId = requestAnimationFrame(renderLoop)
         set({ animationFrameId })
+      } else {
+        // Si no está corriendo, limpiar el frame
+        set({ animationFrameId: null })
       }
     }
 
@@ -285,6 +290,16 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
    */
   setStages: (stages: Array<{ id: string; title: string; duration: number; description: string }>) => {
     const state = get()
+    
+    // Evitar actualizaciones innecesarias si las etapas son las mismas
+    if (state.stages.length === stages.length && 
+        state.stages.every((stage, index) => 
+          stage.id === stages[index]?.id && 
+          stage.duration === stages[index]?.duration
+        )) {
+      return
+    }
+    
     const firstStage = stages[0]
     
     set({
