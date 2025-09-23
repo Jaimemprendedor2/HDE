@@ -5,6 +5,16 @@
   "trailingComma": "es5",
   "printWidth": 80,
   "bracketSpacing": true,
-  "arrowParens": "avoid"
+  "arrowParens": "avoid",
+  "endOfLine": "lf",
+  "quoteProps": "as-needed",
+  "jsxSingleQuote": true,
+  "bracketSameLine": false,
+  "proseWrap": "preserve",
+  "htmlWhitespaceSensitivity": "css",
+  "embeddedLanguageFormatting": "auto",
+  "useTabs": false,
+  "insertPragma": false,
+  "requirePragma": false
 }
 

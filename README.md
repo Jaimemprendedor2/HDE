@@ -33,6 +33,9 @@ src/
 ├── services/
 │   ├── api.ts              # Servicios de API
 │   └── supabaseClient.ts   # Cliente de Supabase
+├── database/
+│   ├── migrations/         # Migraciones de base de datos
+│   └── README.md          # Documentación de BD
 ├── types/
 │   └── index.ts            # Tipos TypeScript
 ├── utils/
@@ -82,6 +85,8 @@ npm run lint
 - ✅ Routing con React Router DOM
 - ✅ Estado global con Zustand
 - ✅ **Integración con Supabase** para base de datos
+- ✅ **Esquema de base de datos completo** con RLS
+- ✅ **Migraciones SQL** listas para aplicar
 - ✅ **Validación de variables de entorno** con errores claros
 - ✅ **Componente de estado de Supabase** para monitoreo
 - ✅ Estilos con Tailwind CSS
