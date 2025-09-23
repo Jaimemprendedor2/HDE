@@ -42,6 +42,11 @@ class TimerChannel {
         this.handleWorkerMessage(event.data)
       }
       
+      this.port.onerror = (error) => {
+        console.error('TimerChannel: SharedWorker error:', error)
+        this.setupFallback()
+      }
+      
       this.isConnected = true
       console.log('TimerChannel: Using SharedWorker')
     } catch (error) {
@@ -65,6 +70,16 @@ class TimerChannel {
     this.readInitialState()
     this.isConnected = true
     console.log('TimerChannel: Using BroadcastChannel fallback')
+    
+    // Simular broadcast periódico para el fallback
+    setInterval(() => {
+      if (this.broadcastChannel && this.stateCallbacks.size > 0) {
+        this.broadcastChannel.postMessage({
+          type: 'STATE',
+          payload: this.currentState
+        })
+      }
+    }, 100)
   }
 
   /**
