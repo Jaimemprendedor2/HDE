@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from 'child_process'
-import { writeFileSync, mkdirSync, existsSync } from 'fs'
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs'
 
 console.log('🚀 Starting Node.js-based Netlify build...')
 
@@ -12,19 +12,30 @@ process.env.VITE_SUPABASE_URL = 'https://ijqukrbbzxuczikjowaf.supabase.co'
 process.env.VITE_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqcXVrcmJienh1Y3ppa2pvd2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1ODc4NjQsImV4cCI6MjA3NDE2Mzg2NH0.dNn8vVwwy5wx9mgEK2Grhfdgq4w0CPNJ-CMlZfuz7Bc'
 process.env.VITE_APP_NAME = 'Housenovo Directorios Empresariales'
 
-// Generate version
+// Generate version from package.json
+console.log('📋 Reading version from package.json...')
+let packageVersion = '1.0.0'
+try {
+  const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
+  packageVersion = packageJson.version || '1.0.0'
+  console.log(`✅ Package version found: ${packageVersion}`)
+} catch (error) {
+  console.warn('⚠️ Could not read package.json, using default version:', error.message)
+}
+
 const now = new Date()
 const year = now.getFullYear()
 const month = String(now.getMonth() + 1).padStart(2, '0')
 const day = String(now.getDate()).padStart(2, '0')
 const hour = String(now.getHours()).padStart(2, '0')
 const minute = String(now.getMinutes()).padStart(2, '0')
-const version = `v1.1.1-${year}.${month}.${day}.${hour}${minute}`
+const version = `v${packageVersion}-${year}.${month}.${day}.${hour}${minute}`
 process.env.VITE_APP_VERSION = version
 
 console.log(`📋 Environment configured:`)
 console.log(`   Node: ${process.version}`)
-console.log(`   Version: ${version}`)
+console.log(`   Package Version: ${packageVersion}`)
+console.log(`   Full Version: ${version}`)
 console.log(`   Supabase URL: ${process.env.VITE_SUPABASE_URL}`)
 
 try {
@@ -48,7 +59,8 @@ try {
     version: version,
     autoVersion: version,
     environment: 'production',
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    packageVersion: packageVersion
   }
   writeFileSync('public/build-info.json', JSON.stringify(buildInfo, null, 2))
 
