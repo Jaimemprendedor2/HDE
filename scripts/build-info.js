@@ -1,5 +1,5 @@
-const { execSync } = require('child_process')
-const { writeFileSync } = require('fs')
+import { execSync } from 'child_process'
+import { writeFileSync } from 'fs'
 
 try {
   // Get build information
