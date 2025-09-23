@@ -39,9 +39,9 @@ export const openPopup = (
     top: Math.round((screen.height - 800) / 2),
     scrollbars: true,
     resizable: true,
-    menubar: false,
-    toolbar: false,
-    location: false,
+    menubar: true,
+    toolbar: true,
+    location: true,
     status: true,
     directories: false
   }
