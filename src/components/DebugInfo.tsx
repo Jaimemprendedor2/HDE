@@ -50,12 +50,49 @@ export const DebugInfo: React.FC = () => {
     }
   }
 
+  // Cargar información del build si está disponible
+  const [buildInfo, setBuildInfo] = useState<any>(null)
+
+  useEffect(() => {
+    // Intentar cargar build-info.json
+    fetch('/build-info.json')
+      .then(res => res.json())
+      .then(data => setBuildInfo(data))
+      .catch(() => setBuildInfo(null))
+  }, [])
+
   return (
     <details className="mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-      <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800">
-        🔧 Información de Debug (Click para expandir)
+      <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800 flex items-center justify-between">
+        <span>🔧 Información de Debug y Versión (Click para expandir)</span>
+        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-mono">
+          {buildInfo?.autoVersion || import.meta.env.VITE_APP_VERSION || 'v1.0.0'}
+        </span>
       </summary>
       <div className="mt-4 text-xs text-gray-600 space-y-1">
+        {/* Información de Versión Destacada */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-semibold text-blue-900 mb-1">📱 Información de Versión</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div><strong>Versión:</strong> <span className="font-mono bg-blue-100 px-1 rounded">{buildInfo?.autoVersion || import.meta.env.VITE_APP_VERSION || 'v1.0.0'}</span></div>
+                <div><strong>Deploy ID:</strong> <span className="font-mono">{buildInfo?.deployId || 'N/A'}</span></div>
+                <div><strong>Git Hash:</strong> <span className="font-mono">{buildInfo?.buildHashShort || 'N/A'}</span></div>
+                <div><strong>Build Date:</strong> {buildInfo?.buildDate ? new Date(buildInfo.buildDate).toLocaleString() : 'N/A'}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-blue-600 font-mono">
+                {buildInfo?.autoVersion || import.meta.env.VITE_APP_VERSION || 'v1.0.0'}
+              </div>
+              <div className="text-xs text-blue-500 mt-1">
+                {buildInfo?.environment || import.meta.env.MODE || 'development'}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <p><strong>Supabase URL:</strong> {import.meta.env.VITE_SUPABASE_URL || 'No configurado'}</p>
@@ -64,12 +101,27 @@ export const DebugInfo: React.FC = () => {
             <p><strong>Environment:</strong> {import.meta.env.MODE}</p>
           </div>
           <div>
-            <p><strong>Timestamp:</strong> {new Date().toISOString()}</p>
-            <p><strong>Build:</strong> {import.meta.env.VITE_APP_VERSION || '1.0.0'}</p>
-            <p><strong>Updated:</strong> {new Date().toLocaleString()}</p>
-            <p><strong>Force Deploy:</strong> {Date.now()}</p>
+            <p><strong>Versión:</strong> {buildInfo?.autoVersion || import.meta.env.VITE_APP_VERSION || '1.0.0'}</p>
+            <p><strong>Deploy ID:</strong> {buildInfo?.deployId || 'N/A'}</p>
+            <p><strong>Build Date:</strong> {buildInfo?.buildDate ? new Date(buildInfo.buildDate).toLocaleString() : new Date().toLocaleString()}</p>
+            <p><strong>Git Hash:</strong> {buildInfo?.buildHashShort || 'N/A'}</p>
           </div>
         </div>
+        
+        {buildInfo && (
+          <div className="mt-4 p-3 bg-white border rounded">
+            <strong className="text-sm">🔨 Información de Build:</strong>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1 text-xs">
+              <div><strong>Branch:</strong> <span className="font-mono bg-gray-100 px-1 rounded">{buildInfo.buildBranch}</span></div>
+              <div><strong>Commits:</strong> <span className="font-mono">{buildInfo.commitCount}</span></div>
+              <div><strong>Autor:</strong> <span className="font-mono">{buildInfo.buildAuthor}</span></div>
+              <div><strong>Último Tag:</strong> <span className="font-mono">{buildInfo.lastTag}</span></div>
+            </div>
+            <div className="mt-2 pt-2 border-t text-xs">
+              <div><strong>Commit:</strong> <span className="font-mono bg-gray-100 px-1 rounded text-xs">{buildInfo.buildCommit}</span></div>
+            </div>
+          </div>
+        )}
         
         <div className={`p-2 rounded mt-2 text-sm ${getStatusColor()}`}>
           <strong>Conexión Supabase:</strong> {

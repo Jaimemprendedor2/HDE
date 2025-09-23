@@ -1,7 +1,7 @@
 {
   "name": "directorios-empresariales",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,10 @@
     "build:local": "node scripts/build-local.js",
     "build:quick": "npm run build",
     "build:check": "npm run lint && npm run test && npm run build",
+    "deploy": "node scripts/deploy.js",
+    "deploy:quick": "git add . && git commit -m \"🚀 Quick deploy $(date)\" && git push origin main",
+    "deploy:force": "git add . && git commit -m \"🚀 Force deploy $(date)\" && git push origin main --force",
+    "version:auto": "node scripts/build-info.js",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "test": "vitest run",

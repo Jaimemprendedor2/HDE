@@ -13,7 +13,13 @@
   NODE_VERSION = "18"
   
   # Build environment variables
-  NODE_ENV = "development"
+  NODE_ENV = "production"
+  
+  # Application settings
+  VITE_APP_NAME = "Housenovo Directorios Empresariales"
+  
+  # Build optimization
+  CI = "true"
 
 # Redirect rules for SPA routing
 [[redirects]]

@@ -291,36 +291,6 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
   },
 
   /**
-   * Configura las etapas del timer
-   * @param stages - Array de etapas a configurar
-   */
-  setStages: (stages: Array<{ id: string; title: string; duration: number; description: string }>) => {
-    const state = get()
-    
-    // Evitar actualizaciones innecesarias si las etapas son las mismas
-    if (state.stages.length === stages.length && 
-        state.stages.every((stage, index) => 
-          stage.id === stages[index]?.id && 
-          stage.duration === stages[index]?.duration
-        )) {
-      return
-    }
-    
-    const firstStage = stages[0]
-    
-    set({
-      stages,
-      currentStageIndex: 0,
-      stageId: firstStage?.id || '',
-      durationMs: firstStage?.duration || 0,
-      isRunning: false,
-      startTimeMs: null,
-      adjustmentsMs: 0,
-      lastUpdateTime: performance.now()
-    })
-  },
-
-  /**
    * Obtiene la etapa actual
    * @returns La etapa actual o null si no hay etapas
    */
