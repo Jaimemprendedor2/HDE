@@ -46,7 +46,7 @@ export const DebugInfo: React.FC = () => {
         <p><strong>Updated:</strong> {new Date().toLocaleString()}</p>
         <p><strong>Force Deploy:</strong> {Date.now()}</p>
         <p><strong>Expected URL:</strong> https://ijqukrbbzxuczikjowaf.supabase.co</p>
-        <p><strong>Status:</strong> URL OK - Need new API key</p>
+        <p><strong>Status:</strong> URL OK - API key updated - Force cache clear</p>
         <div className={`p-2 rounded mt-2 ${getStatusColor()}`}>
           <strong>Conexión Supabase:</strong> {
             connectionStatus === 'checking' ? 'Verificando...' :
