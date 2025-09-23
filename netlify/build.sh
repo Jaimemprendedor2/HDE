@@ -43,7 +43,11 @@ npm --version
 
 # Install dependencies
 echo "📦 Installing dependencies..."
-npm install --legacy-peer-deps --no-fund --no-audit
+npm ci --legacy-peer-deps --no-fund --no-audit --production=false
+
+# Verify critical dependencies
+echo "🔍 Verifying dependencies..."
+npm list @vitejs/plugin-react vite react --depth=0 || echo "⚠️ Some dependencies may be missing"
 
 # Create public directory if it doesn't exist
 mkdir -p public
@@ -54,7 +58,28 @@ node scripts/build-info.js || echo "⚠️ Build info generation failed, continu
 
 # Build the application
 echo "🏗️ Building application..."
-npx vite build
+
+# Try different build approaches
+if npx vite build; then
+    echo "✅ Build successful with npx vite"
+elif npm run build; then
+    echo "✅ Build successful with npm run build"
+elif npx vite build --config vite.config.simple.js; then
+    echo "✅ Build successful with simple config"
+elif ./node_modules/.bin/vite build; then
+    echo "✅ Build successful with direct vite"
+else
+    echo "❌ All build attempts failed"
+    echo "📋 Debugging information:"
+    echo "Node modules contents:"
+    ls -la node_modules/@vitejs/ || echo "No @vitejs directory"
+    ls -la node_modules/vite/ || echo "No vite directory"
+    echo "Package.json scripts:"
+    cat package.json | grep -A 10 '"scripts"'
+    echo "Vite config files:"
+    ls -la vite.config.*
+    exit 1
+fi
 
 # Verify build output
 echo "📁 Verifying build output..."

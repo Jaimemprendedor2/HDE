@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/build-info.js && vite build",
+    "build": "vite build",
+    "build:with-info": "node scripts/build-info.js && vite build",
     "build:local": "node scripts/build-local.js",
     "build:quick": "npm run build",
     "build:check": "npm run lint && npm run test && npm run build",
