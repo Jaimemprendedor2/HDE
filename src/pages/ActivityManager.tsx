@@ -72,7 +72,7 @@ export const ActivityManager: React.FC = () => {
   // Hook para shortcuts de teclado
   const handleTimerControl = useCallback((action: ControlAction) => {
     timerStore.control(action)
-  }, [timerStore])
+  }, []) // Removido timerStore de las dependencias
 
   useTimerKeyboardShortcuts(handleTimerControl)
 
@@ -101,7 +101,7 @@ export const ActivityManager: React.FC = () => {
       
       timerStore.setStages(timerStages)
     }
-  }, [stages, timerStore])
+  }, [stages]) // Removido timerStore de las dependencias
 
   // Configurar syncChannel para manejar SYNC_REQUEST
   useEffect(() => {
@@ -115,7 +115,7 @@ export const ActivityManager: React.FC = () => {
     })
 
     return unsubscribe
-  }, [timerStore])
+  }, []) // Removido timerStore de las dependencias
 
   // Monitorear ventana hija
   useEffect(() => {
