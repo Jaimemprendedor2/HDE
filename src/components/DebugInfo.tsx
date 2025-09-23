@@ -4,14 +4,31 @@ import { supabase } from '../services/supabase'
 export const DebugInfo: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking')
   const [connectionError, setConnectionError] = useState<string>('')
+  const [tableStatus, setTableStatus] = useState<{[key: string]: boolean}>({})
 
   useEffect(() => {
     const testConnection = async () => {
       try {
+        // Probar conexión básica
         const { data, error } = await supabase.from('meetings').select('count').limit(1)
         if (error) {
           setConnectionStatus('error')
           setConnectionError(error.message)
+          
+          // Verificar qué tablas existen
+          const tables = ['meetings', 'meeting_sessions', 'meeting_stages', 'participants']
+          const tableResults: {[key: string]: boolean} = {}
+          
+          for (const table of tables) {
+            try {
+              const { error: tableError } = await supabase.from(table).select('*').limit(1)
+              tableResults[table] = !tableError || tableError.code === 'PGRST116'
+            } catch {
+              tableResults[table] = false
+            }
+          }
+          
+          setTableStatus(tableResults)
         } else {
           setConnectionStatus('connected')
         }
@@ -54,6 +71,18 @@ export const DebugInfo: React.FC = () => {
             `❌ Error: ${connectionError}`
           }
         </div>
+        {Object.keys(tableStatus).length > 0 && (
+          <div className="p-2 rounded mt-2 bg-gray-100">
+            <strong>Estado de Tablas:</strong>
+            <ul className="ml-4">
+              {Object.entries(tableStatus).map(([table, exists]) => (
+                <li key={table} className={exists ? 'text-green-600' : 'text-red-600'}>
+                  {exists ? '✅' : '❌'} {table}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   )
