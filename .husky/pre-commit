@@ -1,6 +1,14 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+#!/bin/sh
+# Pre-commit hook para verificar build antes de commit
 
-npm run lint
-npm run type-check
-npm run test
+echo "🔍 Ejecutando verificación pre-commit..."
+
+# Ejecutar build check
+npm run build:check
+
+if [ $? -ne 0 ]; then
+    echo "❌ Build falló, commit cancelado"
+    exit 1
+fi
+
+echo "✅ Build exitoso, procediendo con commit"

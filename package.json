@@ -6,12 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/build-info.js && vite build",
+    "build:local": "node scripts/build-local.js",
+    "build:quick": "npm run build",
+    "build:check": "npm run lint && npm run test && npm run build",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "clean": "rm -rf dist node_modules/.vite"
+    "clean": "rm -rf dist node_modules/.vite",
+    "pre-commit": "npm run build:check"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.38.4",
