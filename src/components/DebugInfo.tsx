@@ -43,6 +43,7 @@ export const DebugInfo: React.FC = () => {
         <p><strong>Environment:</strong> {import.meta.env.MODE}</p>
         <p><strong>Timestamp:</strong> {new Date().toISOString()}</p>
         <p><strong>Build:</strong> {import.meta.env.VITE_APP_VERSION || '1.0.0'}</p>
+        <p><strong>Updated:</strong> {new Date().toLocaleString()}</p>
         <div className={`p-2 rounded mt-2 ${getStatusColor()}`}>
           <strong>Conexión Supabase:</strong> {
             connectionStatus === 'checking' ? 'Verificando...' :
