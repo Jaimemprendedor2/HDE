@@ -28,30 +28,17 @@ console.log(`   Version: ${version}`)
 console.log(`   Supabase URL: ${process.env.VITE_SUPABASE_URL}`)
 
 try {
-  // Install dependencies
+  // Install dependencies with a simple approach
   console.log('📦 Installing dependencies...')
-  try {
-    execSync('npm ci --silent', { stdio: 'inherit' })
-  } catch (error) {
-    console.log('⚠️ npm ci failed, trying npm install...')
-    execSync('npm install --silent', { stdio: 'inherit' })
-  }
+  execSync('npm install --production=false', { stdio: 'inherit' })
 
-  // Verify critical files
-  console.log('🔍 Checking critical files...')
-  const criticalFiles = [
-    'node_modules/@vitejs/plugin-react/dist/index.js',
-    'node_modules/vite/bin/vite.js',
-    'vite.config.ts'
-  ]
-  
-  criticalFiles.forEach(file => {
-    if (existsSync(file)) {
-      console.log(`✅ ${file} found`)
-    } else {
-      console.log(`❌ ${file} missing`)
-    }
-  })
+  // Quick verification
+  console.log('🔍 Verifying installation...')
+  if (existsSync('node_modules') && existsSync('vite.config.ts')) {
+    console.log('✅ Basic files found, proceeding with build...')
+  } else {
+    console.log('⚠️ Some files missing, but attempting build anyway...')
+  }
 
   // Create build info
   console.log('📋 Creating build info...')
@@ -74,10 +61,16 @@ try {
   if (existsSync('dist') && existsSync('dist/index.html')) {
     console.log('✅ Build successful!')
     try {
+      // Try ls first (Unix/Linux/macOS)
       execSync('ls -la dist/', { stdio: 'inherit' })
     } catch {
-      // Fallback for Windows
-      execSync('dir dist', { stdio: 'inherit', shell: true })
+      try {
+        // Fallback for Windows PowerShell
+        execSync('Get-ChildItem dist', { stdio: 'inherit', shell: 'powershell.exe' })
+      } catch {
+        // Final fallback for Windows CMD
+        execSync('dir dist', { stdio: 'inherit', shell: true })
+      }
     }
   } else {
     console.error('❌ Build failed - missing dist/index.html')
