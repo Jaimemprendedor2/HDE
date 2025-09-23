@@ -4,10 +4,12 @@ import { Directorio } from './pages/Directorio'
 import { Meeting } from './pages/Meeting'
 import { Header } from './components/Header'
 import { Navigation } from './components/Navigation'
+import { DebugInfo } from './components/DebugInfo'
 
 function App() {
   return (
     <div className="min-h-screen bg-gray-50">
+      <DebugInfo />
       <Header />
       <Navigation />
       <Routes>
