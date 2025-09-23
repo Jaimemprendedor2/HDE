@@ -15,6 +15,12 @@ export VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 export VITE_APP_NAME="Housenovo Directorios Empresariales"
 export VITE_APP_VERSION="1.0.0"
 
+# Debug: Show environment variables
+echo "🔍 Environment variables:"
+echo "VITE_SUPABASE_URL: $VITE_SUPABASE_URL"
+echo "VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:0:20}..."
+echo "VITE_APP_NAME: $VITE_APP_NAME"
+
 # Check Node.js and npm versions
 echo "📋 Checking versions..."
 node --version
