@@ -1,0 +1,46 @@
+# INSTRUCCIONES PARA CREAR EL ARCHIVO .env
+# 
+# 1. Crea un archivo llamado ".env" en la raíz del proyecto
+# 2. Copia y pega el siguiente contenido:
+
+# ===========================================
+# Configuración de Supabase
+# ===========================================
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+
+# ===========================================
+# Configuración de la API (opcional)
+# ===========================================
+VITE_API_URL=http://localhost:3001/api
+
+# ===========================================
+# Configuración de la aplicación
+# ===========================================
+VITE_APP_NAME=Housenovo Directorios Empresariales
+VITE_APP_VERSION=1.0.0
+
+# ===========================================
+# INSTRUCCIONES PARA OBTENER LAS CREDENCIALES DE SUPABASE:
+# ===========================================
+# 
+# 1. Ve a https://supabase.com
+# 2. Crea una cuenta o inicia sesión
+# 3. Haz clic en "New Project"
+# 4. Completa la información del proyecto
+# 5. Una vez creado, ve a Settings → API
+# 6. Copia:
+#    - Project URL (VITE_SUPABASE_URL)
+#    - anon public key (VITE_SUPABASE_ANON_KEY)
+# 7. Reemplaza los valores en el archivo .env
+# 
+# ===========================================
+# VERIFICACIÓN:
+# ===========================================
+# 
+# Después de crear el archivo .env:
+# 1. Ejecuta: npm run dev
+# 2. Ve a http://localhost:5173
+# 3. Verifica que el componente "SupabaseStatus" muestre:
+#    - ✅ Supabase conectado (si está bien configurado)
+#    - ❌ Error con instrucciones (si falta configuración)
