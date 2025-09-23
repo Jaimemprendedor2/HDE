@@ -1,67 +1,73 @@
 import { create } from 'zustand'
-import { ControlAction, TimerMessage, TimerState } from '../types/timer'
 
-/**
- * Estado extendido del timer con funcionalidades adicionales
- */
-interface TimerStoreState extends TimerState {
-  // Estado interno para tracking
-  animationFrameId: number | null
-  lastUpdateTime: number
-  
-  // Estado de etapas
-  stages: Array<{ id: string; title: string; duration: number; description: string }>
-  currentStageIndex: number
-  
-  // Acciones del store
-  control: (action: ControlAction) => void
-  computeRemaining: (now?: number) => number
-  startRenderLoop: () => void
-  stopRenderLoop: () => void
-  hydrate: (state: Partial<TimerState>) => void
-  setStages: (stages: Array<{ id: string; title: string; duration: number; description: string }>) => void
-  getCurrentStage: () => { id: string; title: string; duration: number; description: string } | null
-  
-  // Helpers para sincronización
-  createSyncResponse: () => TimerMessage
-  applySyncResponse: (message: TimerMessage) => void
+export interface TimerStage {
+  id: string
+  title: string
+  duration: number // en segundos
+  description: string
 }
 
-/**
- * Store del timer usando Zustand
- */
-export const useTimerStore = create<TimerStoreState>((set, get) => ({
+export interface TimerState {
+  // Estado básico
+  stages: TimerStage[]
+  currentStageIndex: number
+  isRunning: boolean
+  
+  // Control de tiempo
+  startTime: number | null // timestamp de cuando inició
+  pausedTime: number // tiempo acumulado cuando está pausado (en segundos)
+  adjustments: number // ajustes manuales en segundos
+}
+
+export interface TimerStore extends TimerState {
+  // Acciones principales
+  setStages: (stages: TimerStage[]) => void
+  start: () => void
+  pause: () => void
+  reset: () => void
+  
+  // Navegación entre etapas
+  nextStage: () => void
+  prevStage: () => void
+  
+  // Ajustes de tiempo
+  addTime: (seconds: number) => void
+  subtractTime: (seconds: number) => void
+  
+  // Getters calculados
+  getCurrentStage: () => TimerStage | null
+  getRemainingTime: () => number // en segundos
+  getElapsedTime: () => number // en segundos
+  getTotalDuration: () => number // en segundos
+  getProgress: () => number // 0-1
+}
+
+export const useTimerStore = create<TimerStore>((set, get) => ({
   // Estado inicial
-  directoryId: '',
-  stageId: '',
-  durationMs: 0,
-  startTimeMs: null,
-  adjustmentsMs: 0,
-  isRunning: false,
-  animationFrameId: null,
-  lastUpdateTime: 0,
   stages: [],
   currentStageIndex: 0,
+  isRunning: false,
+  startTime: null,
+  pausedTime: 0,
+  adjustments: 0,
 
-  /**
-   * Calcula el tiempo restante basado en el estado actual
-   * @param now - Timestamp actual (performance.now() por defecto)
-   * @returns Tiempo restante en milisegundos
-   */
-  computeRemaining: (now = performance.now()) => {
+  // Configurar etapas
+  setStages: (stages: TimerStage[]) => {
     const state = get()
     
-    if (state.isRunning && state.startTimeMs !== null) {
-      // Timer corriendo: duración - (tiempo transcurrido) + ajustes
-      const elapsed = now - state.startTimeMs
-      const remaining = state.durationMs - elapsed + state.adjustmentsMs
-      return Math.max(0, remaining)
-    } else {
-      // Timer pausado: usar el último tiempo restante calculado
-      // Si no hay startTimeMs, significa que está pausado y usamos duración + ajustes
-      const lastRemaining = state.durationMs + state.adjustmentsMs
-      return Math.max(0, lastRemaining)
+    // Solo actualizar si realmente cambió
+    if (JSON.stringify(state.stages) === JSON.stringify(stages)) {
+      return
     }
+    
+    set({
+      stages,
+      currentStageIndex: 0,
+      isRunning: false,
+      startTime: null,
+      pausedTime: 0,
+      adjustments: 0
+    })
   },
 
   /**

@@ -1,7 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { syncChannel } from '../services/syncChannel'
-import { useTimerStore } from '../stores/timer'
-import type { ControlAction, TimerMessage } from '../types/timer'
 
 interface Stage {
   id: string
@@ -23,110 +20,93 @@ interface TimerProps {
 }
 
 export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
-  const [display, setDisplay] = useState('00:00')
-  const [isRunning, setIsRunning] = useState(false)
+  // Estado del timer
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
-  const [isAlertPhase, setIsAlertPhase] = useState(false)
-  const [progress, setProgress] = useState(0)
+  const [isRunning, setIsRunning] = useState(false)
+  const [remainingSeconds, setRemainingSeconds] = useState(0)
+  const [startTime, setStartTime] = useState<number | null>(null)
+  const [pausedTime, setPausedTime] = useState(0)
+  const [adjustments, setAdjustments] = useState(0)
   
-  const timerStore = useTimerStore()
+  // Referencias para el loop de actualización
   const animationFrameRef = useRef<number>()
   const lastUpdateRef = useRef<number>(Date.now())
 
-  // Configurar etapas en el store cuando cambien
+  // Inicializar con la primera etapa cuando cambien las etapas
   useEffect(() => {
     if (stages.length > 0) {
-      const timerStages = stages
-        .sort((a, b) => a.stage_order - b.stage_order)
-        .map(stage => ({
-          id: stage.id,
-          title: stage.stage_name,
-          duration: stage.duration * 1000, // Convertir a ms
-          description: stage.description || ''
-        }))
-      
-      timerStore.setStages(timerStages)
+      const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
+      const firstStage = sortedStages[0]
+      setCurrentStageIndex(0)
+      setRemainingSeconds(firstStage.duration)
+      setIsRunning(false)
+      setStartTime(null)
+      setPausedTime(0)
+      setAdjustments(0)
     }
   }, [stages])
 
-  // Sincronización con el canal de comunicación
-  useEffect(() => {
-    const unsubscribe = syncChannel.subscribe((message: TimerMessage) => {
-      if (message.type === 'SYNC_RESPONSE' && message.payload) {
-        timerStore.hydrate(message.payload)
-      }
-    })
+  // Obtener etapa actual
+  const getCurrentStage = () => {
+    if (stages.length === 0) return null
+    const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
+    return sortedStages[currentStageIndex] || null
+  }
 
-    return unsubscribe
-  }, [])
-
-  // Función para actualizar el display del timer
-  const updateDisplay = useCallback(() => {
-    const now = Date.now()
-    const elapsed = now - lastUpdateRef.current
+  // Calcular tiempo restante
+  const calculateRemainingTime = () => {
+    const currentStage = getCurrentStage()
+    if (!currentStage) return 0
     
-    // Solo actualizar si ha pasado tiempo suficiente (evitar actualizaciones excesivas)
-    if (elapsed < 100) {
-      if (timerStore.isRunning) {
-        animationFrameRef.current = requestAnimationFrame(updateDisplay)
-      }
-      return
+    const totalDuration = currentStage.duration + adjustments
+    let elapsed = pausedTime
+    
+    if (isRunning && startTime) {
+      elapsed += (Date.now() - startTime) / 1000
     }
-
-    lastUpdateRef.current = now
-
-    // Obtener estado actual del timer
-    const remainingMs = timerStore.computeRemaining()
-    const currentStage = timerStore.getCurrentStage()
-    const isTimerRunning = timerStore.isRunning
-
-    // Actualizar display
-    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
-    const minutes = Math.floor(totalSeconds / 60)
-    const seconds = totalSeconds % 60
-    const displayText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
     
-    setDisplay(displayText)
-    setIsRunning(isTimerRunning)
+    return Math.max(0, totalDuration - elapsed)
+  }
 
-    // Actualizar índice de etapa actual
-    if (currentStage && stages.length > 0) {
+  // Loop de actualización del timer
+  const updateTimer = useCallback(() => {
+    const remaining = calculateRemainingTime()
+    setRemainingSeconds(remaining)
+    
+    // Si el tiempo se agotó, ir a la siguiente etapa o pausar
+    if (remaining <= 0 && isRunning) {
       const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
-      const stageIndex = sortedStages.findIndex(s => s.id === currentStage.id)
-      if (stageIndex !== -1) {
-        setCurrentStageIndex(stageIndex)
+      if (currentStageIndex < sortedStages.length - 1) {
+        // Ir a la siguiente etapa
+        const nextIndex = currentStageIndex + 1
+        const nextStage = sortedStages[nextIndex]
+        setCurrentStageIndex(nextIndex)
+        setRemainingSeconds(nextStage.duration)
+        setIsRunning(false)
+        setStartTime(null)
+        setPausedTime(0)
+        setAdjustments(0)
+      } else {
+        // Última etapa, pausar
+        setIsRunning(false)
+        setStartTime(null)
       }
     }
-
-    // Calcular progreso de la etapa actual
-    if (currentStage) {
-      const stageDurationMs = currentStage.duration
-      const stageRemainingMs = remainingMs
-      const stageElapsedMs = stageDurationMs - stageRemainingMs
-      const stageProgress = Math.max(0, Math.min(100, (stageElapsedMs / stageDurationMs) * 100))
-      setProgress(stageProgress)
-
-      // Determinar si estamos en fase de alerta (últimos 30 segundos)
-      setIsAlertPhase(stageRemainingMs <= 30000 && stageRemainingMs > 0)
+    
+    if (isRunning) {
+      animationFrameRef.current = requestAnimationFrame(updateTimer)
     }
+  }, [isRunning, startTime, pausedTime, adjustments, currentStageIndex, stages])
 
-    // Continuar animación si el timer está corriendo
-    if (isTimerRunning) {
-      animationFrameRef.current = requestAnimationFrame(updateDisplay)
-    }
-  }, [])
-
-  // Iniciar/detener loop de actualización
+  // Efecto para manejar el loop de actualización
   useEffect(() => {
     if (isRunning) {
       lastUpdateRef.current = Date.now()
-      animationFrameRef.current = requestAnimationFrame(updateDisplay)
+      animationFrameRef.current = requestAnimationFrame(updateTimer)
     } else {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }
-      // Actualizar una vez más cuando se pausa
-      updateDisplay()
     }
 
     return () => {
@@ -134,40 +114,76 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [isRunning, updateDisplay])
+  }, [isRunning, updateTimer])
 
-  // Actualizar display inicial
+  // Actualizar tiempo restante cuando cambian los ajustes
   useEffect(() => {
-    updateDisplay()
-  }, [])
+    if (!isRunning) {
+      const remaining = calculateRemainingTime()
+      setRemainingSeconds(remaining)
+    }
+  }, [adjustments, currentStageIndex])
 
   // Controles del timer
-  const handleControl = (action: ControlAction) => {
-    timerStore.control(action)
-  }
-
   const handlePlayPause = () => {
-    handleControl(isRunning ? 'PAUSE' : 'PLAY')
+    if (isRunning) {
+      // Pausar
+      const elapsed = startTime ? (Date.now() - startTime) / 1000 : 0
+      setPausedTime(prev => prev + elapsed)
+      setIsRunning(false)
+      setStartTime(null)
+    } else {
+      // Iniciar
+      setIsRunning(true)
+      setStartTime(Date.now())
+    }
   }
 
   const handleReset = () => {
-    handleControl('RESET')
+    const currentStage = getCurrentStage()
+    if (currentStage) {
+      setRemainingSeconds(currentStage.duration)
+      setIsRunning(false)
+      setStartTime(null)
+      setPausedTime(0)
+      setAdjustments(0)
+    }
   }
 
   const handleNext = () => {
-    handleControl('NEXT')
+    const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
+    if (currentStageIndex < sortedStages.length - 1) {
+      const nextIndex = currentStageIndex + 1
+      const nextStage = sortedStages[nextIndex]
+      setCurrentStageIndex(nextIndex)
+      setRemainingSeconds(nextStage.duration)
+      setIsRunning(false)
+      setStartTime(null)
+      setPausedTime(0)
+      setAdjustments(0)
+    }
   }
 
   const handlePrev = () => {
-    handleControl('PREV')
+    if (currentStageIndex > 0) {
+      const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
+      const prevIndex = currentStageIndex - 1
+      const prevStage = sortedStages[prevIndex]
+      setCurrentStageIndex(prevIndex)
+      setRemainingSeconds(prevStage.duration)
+      setIsRunning(false)
+      setStartTime(null)
+      setPausedTime(0)
+      setAdjustments(0)
+    }
   }
 
   const handleAdd30 = () => {
-    handleControl('ADD30')
+    setAdjustments(prev => prev + 30)
   }
 
   const handleSub30 = () => {
-    handleControl('SUB30')
+    setAdjustments(prev => prev - 30)
   }
 
   // Obtener información de la etapa actual
@@ -177,7 +193,18 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     return sortedStages[currentStageIndex] || sortedStages[0]
   }
 
+  // Calcular estado de alerta y progreso
   const currentStageInfo = getCurrentStageInfo()
+  const isAlertPhase = remainingSeconds <= 30 && remainingSeconds > 0
+  const progress = currentStageInfo ? 
+    Math.min(100, Math.max(0, ((currentStageInfo.duration + adjustments - remainingSeconds) / (currentStageInfo.duration + adjustments)) * 100)) : 0
+
+  // Formatear tiempo
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
 
   // Si no hay etapas, mostrar mensaje
   if (stages.length === 0) {
@@ -244,7 +271,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
             isAlertPhase ? 'text-red-600' : 'text-gray-900'
           }`}
         >
-          {display}
+          {formatTime(remainingSeconds)}
         </div>
         
         {/* Controles principales */}
@@ -382,4 +409,5 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
       )}
     </div>
   )
+}
 }
