@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { TimerState, ControlAction, TimerMessage } from '../types/timer'
+import { ControlAction, TimerMessage, TimerState } from '../types/timer'
 
 /**
  * Estado extendido del timer con funcionalidades adicionales
@@ -9,12 +9,18 @@ interface TimerStoreState extends TimerState {
   animationFrameId: number | null
   lastUpdateTime: number
   
+  // Estado de etapas
+  stages: Array<{ id: string; title: string; duration: number; description: string }>
+  currentStageIndex: number
+  
   // Acciones del store
   control: (action: ControlAction) => void
   computeRemaining: (now?: number) => number
   startRenderLoop: () => void
   stopRenderLoop: () => void
   hydrate: (state: Partial<TimerState>) => void
+  setStages: (stages: Array<{ id: string; title: string; duration: number; description: string }>) => void
+  getCurrentStage: () => { id: string; title: string; duration: number; description: string } | null
   
   // Helpers para sincronización
   createSyncResponse: () => TimerMessage
@@ -34,6 +40,8 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
   isRunning: false,
   animationFrameId: null,
   lastUpdateTime: 0,
+  stages: [],
+  currentStageIndex: 0,
 
   /**
    * Calcula el tiempo restante basado en el estado actual
@@ -125,23 +133,37 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
         break
 
       case 'NEXT':
-        // Reset de temporización (cambio de etapa lo hará el caller)
-        set({
-          isRunning: false,
-          startTimeMs: null,
-          adjustmentsMs: 0,
-          lastUpdateTime: now
-        })
+        // Cambiar a la siguiente etapa
+        const nextIndex = Math.min(state.currentStageIndex + 1, state.stages.length - 1)
+        const nextStage = state.stages[nextIndex]
+        if (nextStage) {
+          set({
+            currentStageIndex: nextIndex,
+            stageId: nextStage.id,
+            durationMs: nextStage.duration,
+            isRunning: false,
+            startTimeMs: null,
+            adjustmentsMs: 0,
+            lastUpdateTime: now
+          })
+        }
         break
 
       case 'PREV':
-        // Reset de temporización (cambio de etapa lo hará el caller)
-        set({
-          isRunning: false,
-          startTimeMs: null,
-          adjustmentsMs: 0,
-          lastUpdateTime: now
-        })
+        // Cambiar a la etapa anterior
+        const prevIndex = Math.max(state.currentStageIndex - 1, 0)
+        const prevStage = state.stages[prevIndex]
+        if (prevStage) {
+          set({
+            currentStageIndex: prevIndex,
+            stageId: prevStage.id,
+            durationMs: prevStage.duration,
+            isRunning: false,
+            startTimeMs: null,
+            adjustmentsMs: 0,
+            lastUpdateTime: now
+          })
+        }
         break
     }
   },
@@ -255,6 +277,35 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
     } else if (!payload.isRunning && get().animationFrameId) {
       // Mantener el loop para mostrar el estado pausado
     }
+  },
+
+  /**
+   * Configura las etapas del timer
+   * @param stages - Array de etapas a configurar
+   */
+  setStages: (stages: Array<{ id: string; title: string; duration: number; description: string }>) => {
+    const state = get()
+    const firstStage = stages[0]
+    
+    set({
+      stages,
+      currentStageIndex: 0,
+      stageId: firstStage?.id || '',
+      durationMs: firstStage?.duration || 0,
+      isRunning: false,
+      startTimeMs: null,
+      adjustmentsMs: 0,
+      lastUpdateTime: performance.now()
+    })
+  },
+
+  /**
+   * Obtiene la etapa actual
+   * @returns La etapa actual o null si no hay etapas
+   */
+  getCurrentStage: () => {
+    const state = get()
+    return state.stages[state.currentStageIndex] || null
   }
 }))
 
