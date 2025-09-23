@@ -9,9 +9,9 @@ echo "🚀 Starting Netlify build process..."
 export NODE_ENV=development
 export CI=true
 
-# Install dependencies (including devDependencies)
+# Install dependencies
 echo "📦 Installing dependencies..."
-npm ci
+npm install --no-fund --no-audit
 
 # Generate build info
 echo "📋 Generating build info..."
