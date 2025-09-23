@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run lint && npm run test && tsc && node scripts/build-info.js && vite build",
+    "build": "npm run lint && npm run type-check && node scripts/build-info.js && vite build",
+    "build:production": "npm run lint && npm run test && npm run type-check && node scripts/build-info.js && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "format": "prettier --write .",
