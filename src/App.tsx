@@ -18,7 +18,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DebugInfo />
       {!hideHeaderAndNav && <Header />}
       {!hideHeaderAndNav && <Navigation />}
       <Routes>
@@ -29,6 +28,7 @@ function App() {
         <Route path={routes.directorio} element={<Directorio />} />
         <Route path={routes.meeting} element={<Meeting />} />
       </Routes>
+      <DebugInfo />
     </div>
   )
 }

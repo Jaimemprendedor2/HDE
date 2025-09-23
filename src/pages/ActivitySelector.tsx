@@ -20,6 +20,8 @@ export const ActivitySelector: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{id: string, title: string} | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
 
   // Cargar actividades existentes al montar el componente
@@ -85,6 +87,43 @@ export const ActivitySelector: React.FC = () => {
   const handleSelectExisting = (meetingId: string) => {
     // Navegar directamente a la pantalla principal con la reunión seleccionada
     navigate(`/activity/${meetingId}`)
+  }
+
+  const handleDeleteActivity = (meetingId: string, meetingTitle: string) => {
+    setDeleteConfirm({ id: meetingId, title: meetingTitle })
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return
+
+    try {
+      setDeleting(true)
+      setError(null)
+
+      // Eliminar la actividad (esto también eliminará las sesiones relacionadas por CASCADE)
+      const { error } = await supabase
+        .from('meetings')
+        .delete()
+        .eq('id', deleteConfirm.id)
+
+      if (error) throw error
+
+      // Actualizar la lista de actividades
+      await loadExistingMeetings()
+      
+      // Cerrar el modal de confirmación
+      setDeleteConfirm(null)
+      
+    } catch (error) {
+      console.error('Error al eliminar la actividad:', error)
+      setError('Error al eliminar la actividad. Intenta nuevamente.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const cancelDelete = () => {
+    setDeleteConfirm(null)
   }
 
   const getTypeInfo = (type: SessionType) => {
@@ -249,8 +288,7 @@ export const ActivitySelector: React.FC = () => {
                     .map(meeting => (
                     <div
                       key={meeting.id}
-                      className="p-6 hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => handleSelectExisting(meeting.id)}
+                      className="p-6 hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
@@ -272,10 +310,28 @@ export const ActivitySelector: React.FC = () => {
                             Fecha: {new Date(meeting.start_date).toLocaleDateString('es-ES')}
                           </p>
                         </div>
-                        <div className="ml-4">
-                          <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                          </svg>
+                        <div className="ml-4 flex space-x-2">
+                          <button
+                            onClick={() => handleSelectExisting(meeting.id)}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                            </svg>
+                            Iniciar Sesión
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteActivity(meeting.id, meeting.title)
+                            }}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            Eliminar
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -291,6 +347,62 @@ export const ActivitySelector: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de confirmación para eliminar */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0">
+                <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Confirmar eliminación
+                </h3>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-sm text-gray-500">
+                ¿Estás seguro de que deseas eliminar la actividad <strong>"{deleteConfirm.title}"</strong>?
+              </p>
+              <p className="text-sm text-red-600 mt-2">
+                Esta acción no se puede deshacer y eliminará todos los datos asociados.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={cancelDelete}
+                disabled={deleting}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center"
+              >
+                {deleting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Eliminando...
+                  </>
+                ) : (
+                  'Eliminar'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

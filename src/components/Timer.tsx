@@ -47,7 +47,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
       
       timerStore.setStages(timerStages)
     }
-  }, [stages, timerStore])
+  }, [stages])
 
   // Sincronización con el canal de comunicación
   useEffect(() => {
@@ -58,7 +58,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     })
 
     return unsubscribe
-  }, [timerStore])
+  }, [])
 
   // Función para actualizar el display del timer
   const updateDisplay = useCallback(() => {
@@ -67,7 +67,9 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     
     // Solo actualizar si ha pasado tiempo suficiente (evitar actualizaciones excesivas)
     if (elapsed < 100) {
-      animationFrameRef.current = requestAnimationFrame(updateDisplay)
+      if (timerStore.isRunning) {
+        animationFrameRef.current = requestAnimationFrame(updateDisplay)
+      }
       return
     }
 
@@ -88,8 +90,9 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     setIsRunning(isTimerRunning)
 
     // Actualizar índice de etapa actual
-    if (currentStage) {
-      const stageIndex = stages.findIndex(s => s.id === currentStage.id)
+    if (currentStage && stages.length > 0) {
+      const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
+      const stageIndex = sortedStages.findIndex(s => s.id === currentStage.id)
       if (stageIndex !== -1) {
         setCurrentStageIndex(stageIndex)
       }
@@ -111,7 +114,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     if (isTimerRunning) {
       animationFrameRef.current = requestAnimationFrame(updateDisplay)
     }
-  }, [timerStore, stages])
+  }, [])
 
   // Iniciar/detener loop de actualización
   useEffect(() => {
@@ -133,10 +136,10 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     }
   }, [isRunning, updateDisplay])
 
-  // Actualizar cuando el store cambia
+  // Actualizar display inicial
   useEffect(() => {
     updateDisplay()
-  }, [timerStore, updateDisplay])
+  }, [])
 
   // Controles del timer
   const handleControl = (action: ControlAction) => {

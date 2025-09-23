@@ -51,39 +51,47 @@ export const DebugInfo: React.FC = () => {
   }
 
   return (
-    <div className="p-4 bg-yellow-100 border border-yellow-400 rounded">
-      <h2 className="text-lg font-bold text-yellow-800">Debug Info</h2>
-      <div className="text-sm text-yellow-700 space-y-1">
-        <p><strong>Supabase URL:</strong> {import.meta.env.VITE_SUPABASE_URL || 'No configurado'}</p>
-        <p><strong>Supabase Key:</strong> {import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Configurado' : 'No configurado'}</p>
-        <p><strong>App Name:</strong> {import.meta.env.VITE_APP_NAME || 'No configurado'}</p>
-        <p><strong>Environment:</strong> {import.meta.env.MODE}</p>
-        <p><strong>Timestamp:</strong> {new Date().toISOString()}</p>
-        <p><strong>Build:</strong> {import.meta.env.VITE_APP_VERSION || '1.0.0'}</p>
-        <p><strong>Updated:</strong> {new Date().toLocaleString()}</p>
-        <p><strong>Force Deploy:</strong> {Date.now()}</p>
-        <p><strong>Expected URL:</strong> https://ijqukrbbzxuczikjowaf.supabase.co</p>
-        <p><strong>Status:</strong> Tables created - Need correct API key</p>
-        <div className={`p-2 rounded mt-2 ${getStatusColor()}`}>
+    <details className="mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+      <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800">
+        🔧 Información de Debug (Click para expandir)
+      </summary>
+      <div className="mt-4 text-xs text-gray-600 space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p><strong>Supabase URL:</strong> {import.meta.env.VITE_SUPABASE_URL || 'No configurado'}</p>
+            <p><strong>Supabase Key:</strong> {import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Configurado' : 'No configurado'}</p>
+            <p><strong>App Name:</strong> {import.meta.env.VITE_APP_NAME || 'No configurado'}</p>
+            <p><strong>Environment:</strong> {import.meta.env.MODE}</p>
+          </div>
+          <div>
+            <p><strong>Timestamp:</strong> {new Date().toISOString()}</p>
+            <p><strong>Build:</strong> {import.meta.env.VITE_APP_VERSION || '1.0.0'}</p>
+            <p><strong>Updated:</strong> {new Date().toLocaleString()}</p>
+            <p><strong>Force Deploy:</strong> {Date.now()}</p>
+          </div>
+        </div>
+        
+        <div className={`p-2 rounded mt-2 text-sm ${getStatusColor()}`}>
           <strong>Conexión Supabase:</strong> {
             connectionStatus === 'checking' ? 'Verificando...' :
             connectionStatus === 'connected' ? '✅ Conectado' :
             `❌ Error: ${connectionError}`
           }
         </div>
+        
         {Object.keys(tableStatus).length > 0 && (
-          <div className="p-2 rounded mt-2 bg-gray-100">
-            <strong>Estado de Tablas:</strong>
-            <ul className="ml-4">
+          <div className="p-2 rounded mt-2 bg-white border">
+            <strong className="text-sm">Estado de Tablas:</strong>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
               {Object.entries(tableStatus).map(([table, exists]) => (
-                <li key={table} className={exists ? 'text-green-600' : 'text-red-600'}>
+                <div key={table} className={`text-xs ${exists ? 'text-green-600' : 'text-red-600'}`}>
                   {exists ? '✅' : '❌'} {table}
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         )}
       </div>
-    </div>
+    </details>
   )
 }
