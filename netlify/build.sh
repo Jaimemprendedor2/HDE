@@ -9,6 +9,12 @@ echo "🚀 Starting Netlify build process..."
 export NODE_ENV=development
 export CI=true
 
+# Configure Supabase environment variables for production
+export VITE_SUPABASE_URL=https://bbzxuczikjowaf.supabase.co
+export VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJienF1Y3ppa2pvd2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjcxMTQzNzMsImV4cCI6MjA0MjY5MDM3M30.iBorNEcdx_VkxN_mLxVzOI5LKu3YSKOhLdqvYbINr2w
+export VITE_APP_NAME="Housenovo Directorios Empresariales"
+export VITE_APP_VERSION="1.0.0"
+
 # Check Node.js and npm versions
 echo "📋 Checking versions..."
 node --version
