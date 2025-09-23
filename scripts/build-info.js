@@ -1,5 +1,6 @@
 import { execSync } from 'child_process'
-import { writeFileSync } from 'fs'
+import { writeFileSync, mkdirSync } from 'fs'
+import { dirname } from 'path'
 
 try {
   // Get build information
@@ -18,6 +19,10 @@ try {
     environment: process.env.NODE_ENV || 'development'
   }
 
+  // Ensure public directory exists
+  const publicDir = 'public'
+  mkdirSync(publicDir, { recursive: true })
+  
   // Write build info to public directory
   writeFileSync(
     'public/build-info.json',
@@ -37,6 +42,10 @@ try {
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'development'
   }
+
+  // Ensure public directory exists
+  const publicDir = 'public'
+  mkdirSync(publicDir, { recursive: true })
 
   writeFileSync(
     'public/build-info.json',
