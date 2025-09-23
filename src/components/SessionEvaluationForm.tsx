@@ -171,13 +171,13 @@ export const SessionEvaluationForm: React.FC<SessionEvaluationFormProps> = ({
 
     const csvContent = [
       headers.join(','),
-      ...evaluations.map(eval => [
-        new Date(eval.created_at).toLocaleDateString('es-ES'),
-        eval.evaluator_role,
-        eval.score_overall,
-        eval.score_listening,
-        eval.score_feedback,
-        `"${(eval.comments || '').replace(/"/g, '""')}"`
+      ...evaluations.map(evaluation => [
+        new Date(evaluation.created_at).toLocaleDateString('es-ES'),
+        evaluation.evaluator_role,
+        evaluation.score_overall,
+        evaluation.score_listening,
+        evaluation.score_feedback,
+        `"${(evaluation.comments || '').replace(/"/g, '""')}"`
       ].join(','))
     ].join('\n')
 
