@@ -17,9 +17,7 @@ interface Stage {
 
 export const Meeting: React.FC = () => {
   const [timerState, setTimerState] = useState<TimerCoreState>({
-    elapsedMs: 0,
     running: false,
-    timestamp: 0,
     remainingSeconds: 0,
     currentStageIndex: 0,
     adjustments: 0
@@ -42,20 +40,11 @@ export const Meeting: React.FC = () => {
     }
   }, [])
 
-  // El componente Meeting es solo un reflejo - no necesita cálculos propios
-
-  // Formatear tiempo transcurrido
-  const formatTime = (milliseconds: number) => {
-    const totalSeconds = Math.floor(milliseconds / 1000)
-    const hours = Math.floor(totalSeconds / 3600)
-    const minutes = Math.floor((totalSeconds % 3600) / 60)
-    const seconds = totalSeconds % 60
-
-    if (hours > 0) {
-      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-    } else {
-      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-    }
+  // Formatear tiempo en formato MM:SS
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
   // Reflejo exacto del cronómetro principal - usar tiempo restante del timerCore

@@ -26,9 +26,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
   const [remainingSeconds, setRemainingSeconds] = useState(0)
   const [adjustments, setAdjustments] = useState(0)
   const [timerState, setTimerState] = useState<TimerCoreState>({
-    elapsedMs: 0,
     running: false,
-    timestamp: 0,
     remainingSeconds: 0,
     currentStageIndex: 0,
     adjustments: 0
@@ -87,26 +85,25 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     return sortedStages[currentStageIndex] || null
   }
 
-  // Calcular tiempo restante basado en el estado del timerChannel
+  // Calcular tiempo restante basado en la etapa actual
   const calculateRemainingTime = () => {
     const currentStage = getCurrentStage()
     if (!currentStage) return 0
     
     const totalDuration = currentStage.duration + adjustments
-    const elapsedSeconds = timerState.elapsedMs / 1000
-    
-    return Math.max(0, totalDuration - elapsedSeconds)
+    return totalDuration
   }
 
-  // Loop de actualización del timer usando requestAnimationFrame
-  const updateTimer = useCallback(() => {
+  // Actualizar el timerCore cuando cambien las variables
+  useEffect(() => {
     const remaining = calculateRemainingTime()
     setRemainingSeconds(remaining)
-    // Actualizar el timerCore con el tiempo restante calculado
     timerCore.updateRemainingSeconds(remaining)
-    
-    // Si el tiempo se agotó, ir a la siguiente etapa o pausar
-    if (remaining <= 0 && timerState.running) {
+  }, [currentStageIndex, adjustments, stages])
+
+  // Manejar cambio de etapa cuando el tiempo se agote
+  useEffect(() => {
+    if (timerState.remainingSeconds <= 0 && timerState.running) {
       const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
       if (currentStageIndex < sortedStages.length - 1) {
         // Ir a la siguiente etapa
@@ -115,36 +112,15 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
         setCurrentStageIndex(nextIndex)
         setRemainingSeconds(nextStage.duration)
         setAdjustments(0)
-        // Resetear el cronómetro para la nueva etapa
         timerCore.reset()
       } else {
         // Última etapa, pausar
         timerCore.pause()
       }
     }
-    
-    // Continuar el loop si el cronómetro está corriendo
-    if (timerState.running) {
-      animationFrameRef.current = requestAnimationFrame(updateTimer)
-    }
-  }, [timerState.running, timerState.elapsedMs, adjustments, currentStageIndex, stages])
+  }, [timerState.remainingSeconds, timerState.running, currentStageIndex, stages])
 
-  // Efecto para manejar el loop de actualización
-  useEffect(() => {
-    if (timerState.running) {
-      animationFrameRef.current = requestAnimationFrame(updateTimer)
-    } else {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-    }
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-    }
-  }, [timerState.running, updateTimer])
+  // El timerCore maneja la actualización automáticamente cada segundo
 
   // Actualizar tiempo restante cuando cambian los ajustes
   useEffect(() => {

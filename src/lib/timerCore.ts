@@ -1,12 +1,10 @@
 /**
- * Timer Core - Sistema centralizado de cronómetro
- * Maneja todos los cálculos y estado del cronómetro
+ * Timer Core - Sistema centralizado simplificado
+ * Una sola fuente de verdad para el cronómetro
  */
 
 export interface TimerCoreState {
-  elapsedMs: number
   running: boolean
-  timestamp: number
   remainingSeconds: number
   currentStageIndex: number
   adjustments: number
@@ -16,16 +14,14 @@ export type TimerCoreCallback = (state: TimerCoreState) => void
 
 class TimerCore {
   private state: TimerCoreState = {
-    elapsedMs: 0,
     running: false,
-    timestamp: 0,
     remainingSeconds: 0,
     currentStageIndex: 0,
     adjustments: 0
   }
   
   private callbacks: Set<TimerCoreCallback> = new Set()
-  private animationFrameId: number | null = null
+  private intervalId: number | null = null
   private isInitialized = false
 
   constructor() {
@@ -39,7 +35,7 @@ class TimerCore {
     this.loadStateFromStorage()
     this.startUpdateLoop()
     this.isInitialized = true
-    console.log('TimerCore: Initialized')
+    console.log('TimerCore: Initialized with simplified logic')
   }
 
   /**
@@ -70,30 +66,17 @@ class TimerCore {
   }
 
   /**
-   * Inicia el loop de actualización
+   * Inicia el loop de actualización (cada segundo)
    */
   private startUpdateLoop() {
-    const update = () => {
-      this.updateState()
-      this.animationFrameId = requestAnimationFrame(update)
-    }
-    this.animationFrameId = requestAnimationFrame(update)
-  }
-
-  /**
-   * Actualiza el estado del cronómetro
-   */
-  private updateState() {
-    const now = performance.now()
-    
-    if (this.state.running && this.state.timestamp > 0) {
-      // Calcular tiempo transcurrido
-      const elapsed = now - this.state.timestamp
-      this.state.elapsedMs = Math.floor(elapsed)
-    }
-    
-    this.state.timestamp = now
-    this.notifyCallbacks()
+    this.intervalId = window.setInterval(() => {
+      if (this.state.running && this.state.remainingSeconds > 0) {
+        this.state.remainingSeconds = Math.max(0, this.state.remainingSeconds - 1)
+        this.saveStateToStorage()
+        this.notifyCallbacks()
+        console.log(`TimerCore: Tick - ${this.state.remainingSeconds} seconds remaining`)
+      }
+    }, 1000) // Actualizar cada segundo
   }
 
   /**
@@ -115,8 +98,6 @@ class TimerCore {
   start() {
     if (!this.state.running) {
       this.state.running = true
-      this.state.timestamp = performance.now()
-      this.state.elapsedMs = 0
       this.saveStateToStorage()
       this.notifyCallbacks()
       console.log('TimerCore: Started')
@@ -139,14 +120,10 @@ class TimerCore {
    * Reinicia el cronómetro
    */
   reset() {
-    this.state = {
-      elapsedMs: 0,
-      running: false,
-      timestamp: performance.now(),
-      remainingSeconds: 0,
-      currentStageIndex: 0,
-      adjustments: 0
-    }
+    this.state.running = false
+    this.state.remainingSeconds = 0
+    this.state.currentStageIndex = 0
+    this.state.adjustments = 0
     this.saveStateToStorage()
     this.notifyCallbacks()
     console.log('TimerCore: Reset')
@@ -159,6 +136,7 @@ class TimerCore {
     this.state.remainingSeconds = remainingSeconds
     this.saveStateToStorage()
     this.notifyCallbacks()
+    console.log(`TimerCore: Updated remaining seconds to ${remainingSeconds}`)
   }
 
   /**
@@ -168,6 +146,7 @@ class TimerCore {
     this.state.currentStageIndex = stageIndex
     this.saveStateToStorage()
     this.notifyCallbacks()
+    console.log(`TimerCore: Updated stage index to ${stageIndex}`)
   }
 
   /**
@@ -177,6 +156,7 @@ class TimerCore {
     this.state.adjustments = adjustments
     this.saveStateToStorage()
     this.notifyCallbacks()
+    console.log(`TimerCore: Updated adjustments to ${adjustments}`)
   }
 
   /**
@@ -204,9 +184,9 @@ class TimerCore {
    * Desconecta el Timer Core
    */
   disconnect() {
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId)
-      this.animationFrameId = null
+    if (this.intervalId) {
+      clearInterval(this.intervalId)
+      this.intervalId = null
     }
     this.callbacks.clear()
     this.isInitialized = false
