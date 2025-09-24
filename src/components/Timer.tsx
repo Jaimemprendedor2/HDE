@@ -130,11 +130,14 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     }
   }, [adjustments, currentStageIndex, timerState.running])
 
-  // Controles del timer usando timerChannel
+  // Controles del timer usando timerCore
   const handlePlayPause = () => {
     if (timerState.running) {
       timerCore.pause()
     } else {
+      // Antes de iniciar, sincronizar el tiempo restante
+      const remaining = calculateRemainingTime()
+      timerCore.updateRemainingSeconds(remaining)
       timerCore.start()
     }
   }
@@ -144,6 +147,8 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     if (currentStage) {
       setRemainingSeconds(currentStage.duration)
       setAdjustments(0)
+      // Sincronizar con timerCore antes de resetear
+      timerCore.updateRemainingSeconds(currentStage.duration)
       timerCore.reset()
     }
   }
@@ -156,6 +161,8 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
       setCurrentStageIndex(nextIndex)
       setRemainingSeconds(nextStage.duration)
       setAdjustments(0)
+      // Sincronizar con timerCore
+      timerCore.updateRemainingSeconds(nextStage.duration)
       timerCore.reset()
     }
   }
@@ -168,16 +175,28 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
       setCurrentStageIndex(prevIndex)
       setRemainingSeconds(prevStage.duration)
       setAdjustments(0)
+      // Sincronizar con timerCore
+      timerCore.updateRemainingSeconds(prevStage.duration)
       timerCore.reset()
     }
   }
 
   const handleAdd30 = () => {
-    setAdjustments(prev => prev + 30)
+    const newAdjustments = adjustments + 30
+    setAdjustments(newAdjustments)
+    // Sincronizar con timerCore
+    timerCore.updateAdjustments(newAdjustments)
+    const remaining = calculateRemainingTime()
+    timerCore.updateRemainingSeconds(remaining)
   }
 
   const handleSub30 = () => {
-    setAdjustments(prev => prev - 30)
+    const newAdjustments = Math.max(0, adjustments - 30)
+    setAdjustments(newAdjustments)
+    // Sincronizar con timerCore
+    timerCore.updateAdjustments(newAdjustments)
+    const remaining = calculateRemainingTime()
+    timerCore.updateRemainingSeconds(remaining)
   }
 
   // Obtener información de la etapa actual
