@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from 'react'
+import { timerCore, TimerCoreState } from '../lib/timerCore'
 import { supabase } from '../services/supabase'
 
 export const DebugInfo: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking')
   const [connectionError, setConnectionError] = useState<string>('')
   const [tableStatus, setTableStatus] = useState<{[key: string]: boolean}>({})
+  const [timerState, setTimerState] = useState<TimerCoreState>({
+    running: false,
+    remainingSeconds: 0,
+    currentStageIndex: 0,
+    adjustments: 0
+  })
 
   useEffect(() => {
     const testConnection = async () => {
@@ -59,6 +66,17 @@ export const DebugInfo: React.FC = () => {
       .then(res => res.json())
       .then(data => setBuildInfo(data))
       .catch(() => setBuildInfo(null))
+  }, [])
+
+  // Suscribirse al estado del cronómetro core para monitoreo
+  useEffect(() => {
+    const unsubscribe = timerCore.subscribe((state) => {
+      setTimerState(state)
+    })
+
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   return (
@@ -143,6 +161,40 @@ export const DebugInfo: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Estado del Cronómetro Core */}
+        <div className="p-3 rounded mt-4 bg-purple-50 border border-purple-200">
+          <strong className="text-sm text-purple-900">⏱️ Estado del Cronómetro Core (Reflejo en Tiempo Real)</strong>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+            <div className="bg-white p-2 rounded border">
+              <div className="text-xs text-gray-600 mb-1">Estado</div>
+              <div className={`text-sm font-mono ${timerState.running ? 'text-green-600' : 'text-gray-600'}`}>
+                {timerState.running ? '▶️ Ejecutándose' : '⏸️ Pausado'}
+              </div>
+            </div>
+            <div className="bg-white p-2 rounded border">
+              <div className="text-xs text-gray-600 mb-1">Tiempo Restante</div>
+              <div className="text-sm font-mono text-blue-600">
+                {Math.floor(timerState.remainingSeconds / 60)}:{(timerState.remainingSeconds % 60).toString().padStart(2, '0')}
+              </div>
+            </div>
+            <div className="bg-white p-2 rounded border">
+              <div className="text-xs text-gray-600 mb-1">Etapa Actual</div>
+              <div className="text-sm font-mono text-orange-600">
+                #{timerState.currentStageIndex + 1}
+              </div>
+            </div>
+            <div className="bg-white p-2 rounded border">
+              <div className="text-xs text-gray-600 mb-1">Ajustes</div>
+              <div className={`text-sm font-mono ${timerState.adjustments === 0 ? 'text-gray-600' : timerState.adjustments > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {timerState.adjustments > 0 ? '+' : ''}{timerState.adjustments}s
+              </div>
+            </div>
+          </div>
+          <div className="mt-2 text-xs text-purple-700">
+            💡 Esta información se actualiza en tiempo real desde el timerCore singleton
+          </div>
+        </div>
       </div>
     </details>
   )
