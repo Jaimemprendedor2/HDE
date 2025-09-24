@@ -28,13 +28,25 @@ export const TimerSlave: React.FC = () => {
 
   // 🎯 FUNCIÓN CENTRAL: Actualizar estado con tracking de fuente
   const updateStateFromSource = useCallback((newState: TimerCoreState, source: SyncStatus['source']) => {
-    setTimerState(newState)
+    // Solo actualizar si el estado realmente cambió para evitar re-renders innecesarios
+    setTimerState(prevState => {
+      const hasChanged = prevState.running !== newState.running ||
+                        prevState.remainingSeconds !== newState.remainingSeconds ||
+                        prevState.currentStageIndex !== newState.currentStageIndex ||
+                        prevState.adjustments !== newState.adjustments
+      
+      if (hasChanged) {
+        console.log(`TimerSlave: Estado actualizado desde ${source}:`, newState)
+        return newState
+      }
+      return prevState
+    })
+    
     setSyncStatus({
       source,
       lastUpdate: Date.now(),
       isHealthy: true
     })
-    console.log(`TimerSlave: Estado actualizado desde ${source}:`, newState)
   }, [])
 
   useEffect(() => {
@@ -64,13 +76,8 @@ export const TimerSlave: React.FC = () => {
       channelRef.current = new BroadcastChannel('timer-core-sync')
       channelRef.current.onmessage = (event) => {
         if (isActive && event.data?.type === 'TIMER_STATE_UPDATE') {
-          // Siempre usar BroadcastChannel para actualizaciones críticas (start/pause/reset)
-          const isCriticalUpdate = event.data.state.running !== timerState.running || 
-                                   event.data.state.remainingSeconds !== timerState.remainingSeconds
-          
-          if (isCriticalUpdate) {
-            updateStateFromSource(event.data.state, 'broadcast')
-          }
+          // Siempre actualizar desde BroadcastChannel - es la fuente de verdad entre pestañas
+          updateStateFromSource(event.data.state, 'broadcast')
         }
       }
       console.log('TimerSlave: Capa 2 (BroadcastChannel) - ✅ Inicializada')
@@ -87,20 +94,14 @@ export const TimerSlave: React.FC = () => {
           const stored = localStorage.getItem('timerCoreState')
           if (stored) {
             const storedState = JSON.parse(stored)
-            // Verificar si hay cambios significativos en el estado
-            const hasSignificantChange = storedState.running !== timerState.running ||
-                                       Math.abs(storedState.remainingSeconds - timerState.remainingSeconds) > 1 ||
-                                       storedState.currentStageIndex !== timerState.currentStageIndex
-            
-            if (hasSignificantChange) {
-              updateStateFromSource(storedState, 'storage')
-            }
+            // Siempre actualizar desde localStorage - es la fuente de verdad persistente
+            updateStateFromSource(storedState, 'storage')
           }
         } catch (error) {
           console.warn('TimerSlave: Error en Capa 3 (localStorage):', error)
         }
       }
-    }, 1000) // Polling cada 1 segundo para mayor responsividad
+    }, 500) // Polling cada 500ms para máxima responsividad
     console.log('TimerSlave: Capa 3 (localStorage polling) - ✅ Inicializada')
 
     // 🔍 CAPA 4: HEALTH CHECK Y AUTO-RECOVERY
