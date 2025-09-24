@@ -1,6 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { timerChannel, TimerState } from '../lib/timerChannel'
 
+interface Stage {
+  id: string
+  meeting_id: string
+  stage_name: string
+  description?: string
+  duration: number
+  color_hex: string
+  alert_color_hex: string
+  stage_order: number
+  status: string
+  start_time?: string
+  end_time?: string
+}
+
 export const Meeting: React.FC = () => {
   const [timerState, setTimerState] = useState<TimerState>({
     elapsedMs: 0,
@@ -70,8 +84,50 @@ export const Meeting: React.FC = () => {
     }
   }
 
-  // Reflejo exacto del cronómetro principal - sin cálculos propios
-  const currentElapsed = timerState.elapsedMs
+  // Obtener información de las etapas desde localStorage
+  const [stages, setStages] = useState<Stage[]>([])
+  const [currentStageIndex, setCurrentStageIndex] = useState(0)
+  const [adjustments, setAdjustments] = useState(0)
+
+  // Cargar información de las etapas desde localStorage
+  useEffect(() => {
+    try {
+      const storedStages = localStorage.getItem('currentStages')
+      const storedStageIndex = localStorage.getItem('currentStageIndex')
+      const storedAdjustments = localStorage.getItem('timerAdjustments')
+      
+      if (storedStages) {
+        setStages(JSON.parse(storedStages))
+      }
+      if (storedStageIndex) {
+        setCurrentStageIndex(parseInt(storedStageIndex))
+      }
+      if (storedAdjustments) {
+        setAdjustments(parseInt(storedAdjustments))
+      }
+    } catch (error) {
+      console.warn('Error loading stage info from localStorage:', error)
+    }
+  }, [])
+
+  // Calcular tiempo restante como el cronómetro principal
+  const getCurrentStage = () => {
+    if (stages.length === 0) return null
+    const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
+    return sortedStages[currentStageIndex] || null
+  }
+
+  const calculateRemainingSeconds = () => {
+    const currentStage = getCurrentStage()
+    if (!currentStage) return 0
+    
+    const totalDuration = currentStage.duration + adjustments
+    const elapsedSeconds = timerState.elapsedMs / 1000
+    
+    return Math.max(0, totalDuration - elapsedSeconds)
+  }
+
+  const remainingSeconds = calculateRemainingSeconds()
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -101,7 +157,7 @@ export const Meeting: React.FC = () => {
               timerState.running ? 'text-green-600' : 'text-gray-600'
             }`}
           >
-            {formatTime(currentElapsed)}
+            {formatTime(remainingSeconds)}
           </div>
           
           {/* Indicador de estado */}
@@ -136,9 +192,9 @@ export const Meeting: React.FC = () => {
             </div>
             
             <div className="text-left">
-              <span className="text-gray-600">Tiempo transcurrido:</span>
+              <span className="text-gray-600">Tiempo restante:</span>
               <span className="ml-2 font-medium text-gray-900">
-                {formatTime(currentElapsed)}
+                {formatTime(remainingSeconds)}
               </span>
             </div>
             

@@ -43,6 +43,11 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
       setCurrentStageIndex(0)
       setRemainingSeconds(firstStage.duration)
       setAdjustments(0)
+      
+      // Guardar información de etapas en localStorage para sincronización
+      localStorage.setItem('currentStages', JSON.stringify(stages))
+      localStorage.setItem('currentStageIndex', '0')
+      localStorage.setItem('timerAdjustments', '0')
     }
   }, [stages])
 
@@ -65,6 +70,15 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
       }
     }
   }, [])
+
+  // Actualizar localStorage cuando cambien las variables de control
+  useEffect(() => {
+    localStorage.setItem('currentStageIndex', currentStageIndex.toString())
+  }, [currentStageIndex])
+
+  useEffect(() => {
+    localStorage.setItem('timerAdjustments', adjustments.toString())
+  }, [adjustments])
 
   // Obtener etapa actual
   const getCurrentStage = () => {
