@@ -6,10 +6,10 @@ import { SessionNotesEditor } from '../components/SessionNotesEditor'
 import { StageManager } from '../components/StageManager'
 import { TimerMaster } from '../components/TimerMaster'
 import { useTimerKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import { timerCore } from '../lib/timerCore'
 import { supabase } from '../services/supabaseClient'
 import { syncChannel } from '../services/syncChannel'
 import type { SessionType } from '../services/types'
-import { useTimerStore } from '../stores/timer'
 import type { ControlAction } from '../types/timer'
 import { buildTimerPopupUrl, openPopup } from '../utils/popup'
 
@@ -66,13 +66,48 @@ export const ActivityManager: React.FC = () => {
   const [childWindow, setChildWindow] = useState<Window | null>(null)
   const childWindowRef = useRef<Window | null>(null)
   
-  // Timer store
-  const timerStore = useTimerStore()
-
-  // Hook para shortcuts de teclado
+  // Hook para shortcuts de teclado - usar TimerCore directamente
   const handleTimerControl = useCallback((action: ControlAction) => {
-    timerStore.control(action)
-  }, []) // Removido timerStore de las dependencias
+    switch (action) {
+      case 'PLAY':
+        timerCore.start()
+        break
+      case 'PAUSE':
+        timerCore.pause()
+        break
+      case 'RESET':
+        timerCore.reset()
+        break
+      case 'ADD30':
+        const currentAdjustments = timerCore.getState().adjustments
+        timerCore.updateAdjustments(currentAdjustments + 30)
+        break
+      case 'SUB30':
+        const currentAdjustmentsSub = timerCore.getState().adjustments
+        timerCore.updateAdjustments(currentAdjustmentsSub - 30)
+        break
+      case 'NEXT':
+        const currentIndex = timerCore.getState().currentStageIndex
+        const nextIndex = Math.min(currentIndex + 1, stages.length - 1)
+        if (nextIndex !== currentIndex && stages[nextIndex]) {
+          timerCore.updateCurrentStageIndex(nextIndex)
+          timerCore.updateRemainingSeconds(stages[nextIndex].duration)
+          timerCore.updateAdjustments(0)
+          timerCore.pauseOnly()
+        }
+        break
+      case 'PREV':
+        const currentIndexPrev = timerCore.getState().currentStageIndex
+        const prevIndex = Math.max(currentIndexPrev - 1, 0)
+        if (prevIndex !== currentIndexPrev && stages[prevIndex]) {
+          timerCore.updateCurrentStageIndex(prevIndex)
+          timerCore.updateRemainingSeconds(stages[prevIndex].duration)
+          timerCore.updateAdjustments(0)
+          timerCore.pauseOnly()
+        }
+        break
+    }
+  }, [stages])
 
   useTimerKeyboardShortcuts(handleTimerControl)
 
@@ -88,34 +123,46 @@ export const ActivityManager: React.FC = () => {
     }
   }, [meetingId])
 
-  // Configurar timer con etapas cuando se cargan
+  // Configurar timer con etapas cuando se cargan - usar TimerCore directamente
   useEffect(() => {
     if (stages.length > 0) {
-      // Convertir etapas a formato del timer
-      const timerStages = stages.map(stage => ({
-        id: stage.id,
-        title: stage.stage_name,
-        duration: stage.duration,
-        description: stage.description || ''
-      }))
+      const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
+      const firstStage = sortedStages[0]
       
-      timerStore.setStages(timerStages)
+      // Sincronizar con TimerCore
+      timerCore.updateCurrentStageIndex(0)
+      timerCore.updateRemainingSeconds(firstStage.duration)
+      timerCore.updateAdjustments(0)
+      timerCore.pauseOnly()
+      console.log('ActivityManager: Etapas configuradas en TimerCore:', firstStage.stage_name, firstStage.duration)
     }
-  }, [stages]) // Removido timerStore de las dependencias
+  }, [stages])
 
-  // Configurar syncChannel para manejar SYNC_REQUEST
+  // Configurar syncChannel para manejar SYNC_REQUEST - usar TimerCore directamente
   useEffect(() => {
     const unsubscribe = syncChannel.subscribe((message) => {
       if (message.type === 'SYNC_REQUEST') {
-        const syncResponse = timerStore.createSyncResponse()
-        if (syncResponse) {
-          syncChannel.publish(syncResponse)
+        // Crear respuesta de sincronización desde TimerCore
+        const timerState = timerCore.getState()
+        const syncResponse = {
+          type: 'SYNC_RESPONSE' as const,
+          payload: {
+            directoryId: meetingId || '',
+            stageId: stages[timerState.currentStageIndex]?.id || '',
+            durationMs: timerState.remainingSeconds * 1000,
+            startTimeMs: null, // TimerCore no maneja startTimeMs
+            adjustmentsMs: timerState.adjustments * 1000,
+            isRunning: timerState.running,
+            timestamp: performance.now()
+          },
+          v: 'v1' as const
         }
+        syncChannel.publish(syncResponse)
       }
     })
 
     return unsubscribe
-  }, []) // Removido timerStore de las dependencias
+  }, [meetingId, stages])
 
   // Monitorear ventana hija
   useEffect(() => {
@@ -265,7 +312,7 @@ export const ActivityManager: React.FC = () => {
       setShowTimer(false)
 
       // Detener timer
-      timerStore.control('RESET')
+      timerCore.reset()
 
     } catch (err) {
       console.error('Error finalizando sesión:', err)
@@ -289,11 +336,18 @@ export const ActivityManager: React.FC = () => {
       setChildWindow(popup)
       childWindowRef.current = popup
 
-      // Emitir mensaje INIT
+      // Emitir mensaje INIT - usar TimerCore directamente
+      const timerState = timerCore.getState()
       const initMessage = {
         type: 'INIT' as const,
         payload: {
-          ...timerStore.createSyncResponse().payload,
+          directoryId: meetingId || '',
+          stageId: stages[timerState.currentStageIndex]?.id || '',
+          durationMs: timerState.remainingSeconds * 1000,
+          startTimeMs: null,
+          adjustmentsMs: timerState.adjustments * 1000,
+          isRunning: timerState.running,
+          timestamp: performance.now(),
           sessionId: session.id,
           meetingId: meetingId || ''
         },

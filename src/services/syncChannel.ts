@@ -1,4 +1,4 @@
-import { TimerMessage, PROTOCOL_VERSION } from '../types/timer'
+import { PROTOCOL_VERSION, TimerMessage } from '../types/timer'
 
 /**
  * Configuración del canal de sincronización
@@ -527,30 +527,28 @@ export const createTimerSyncChannel = (directoryId: string) => {
   return channel
 }
 
-// Helper para sincronizar con el timer store
-export const syncWithTimerStore = (channel: SyncChannel, timerStore: any) => {
+// Helper para sincronizar con TimerCore (reemplaza syncWithTimerStore)
+export const syncWithTimerCore = (channel: SyncChannel) => {
   // Suscribirse a mensajes de sincronización
   const unsubscribe = channel.subscribe((message: TimerMessage) => {
     if (message.type === 'SYNC_RESPONSE' && message.payload) {
-      // Aplicar estado sincronizado al timer store
-      if (timerStore.hydrate) {
-        timerStore.hydrate(message.payload)
+      // Aplicar estado sincronizado al TimerCore
+      const { timerCore } = require('../lib/timerCore')
+      if (message.payload.durationMs !== undefined) {
+        timerCore.updateRemainingSeconds(Math.floor(message.payload.durationMs / 1000))
+      }
+      if (message.payload.adjustmentsMs !== undefined) {
+        timerCore.updateAdjustments(Math.floor(message.payload.adjustmentsMs / 1000))
+      }
+      if (message.payload.isRunning !== undefined) {
+        if (message.payload.isRunning) {
+          timerCore.start()
+        } else {
+          timerCore.pause()
+        }
       }
     }
   })
-
-  // Responder a solicitudes de sincronización
-  const originalPublish = channel.publish.bind(channel)
-  channel.publish = (message: TimerMessage) => {
-    if (message.type === 'SYNC_REQUEST') {
-      // Crear respuesta con el estado actual del timer
-      const syncResponse = timerStore.createSyncResponse?.()
-      if (syncResponse) {
-        originalPublish(syncResponse)
-      }
-    }
-    originalPublish(message)
-  }
 
   return unsubscribe
 }
