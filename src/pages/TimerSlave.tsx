@@ -122,7 +122,7 @@ export const TimerSlave: React.FC = () => {
             <div className="text-left">
               <span className="text-gray-600">Última actualización:</span>
               <span className="ml-2 font-medium text-gray-900">
-                {new Date(timerState.timestamp).toLocaleTimeString()}
+                {new Date().toLocaleTimeString()}
               </span>
             </div>
             
