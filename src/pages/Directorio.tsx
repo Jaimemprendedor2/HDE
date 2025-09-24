@@ -1,26 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { timerChannel, TimerState } from '../lib/timerChannel'
+import { timerCore, TimerCoreState } from '../lib/timerCore'
 
 export const Directorio: React.FC = () => {
-  const [timerState, setTimerState] = useState<TimerState>({
-    elapsedMs: 0,
+  const [timerState, setTimerState] = useState<TimerCoreState>({
     running: false,
-    timestamp: 0
+    remainingSeconds: 0,
+    currentStageIndex: 0,
+    adjustments: 0
   })
   
   const unsubscribeRef = useRef<(() => void) | null>(null)
   const animationFrameRef = useRef<number>()
 
-  // Conectar al timerChannel al montar
+  // Conectar al timerCore al montar
   useEffect(() => {
-    // Conectar al canal del cronómetro
-    timerChannel.connect()
-    
-    // Leer estado inicial
-    timerChannel.readInitialState()
-    
-    // Suscribirse a cambios de estado
-    unsubscribeRef.current = timerChannel.onState((state) => {
+    // Suscribirse a cambios de estado del TimerCore
+    unsubscribeRef.current = timerCore.subscribe((state) => {
       setTimerState(state)
     })
 
@@ -55,44 +50,24 @@ export const Directorio: React.FC = () => {
     }
   }, [timerState.running])
 
-  // Formatear tiempo transcurrido
-  const formatTime = (milliseconds: number) => {
-    const totalSeconds = Math.floor(milliseconds / 1000)
-    const hours = Math.floor(totalSeconds / 3600)
-    const minutes = Math.floor((totalSeconds % 3600) / 60)
-    const seconds = totalSeconds % 60
-
-    if (hours > 0) {
-      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-    } else {
-      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-    }
+  // Formatear tiempo restante
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
-
-  // Calcular tiempo transcurrido en tiempo real
-  const getCurrentElapsed = () => {
-    if (!timerState.running) {
-      return timerState.elapsedMs
-    }
-    
-    const now = performance.now()
-    const timeSinceLastUpdate = now - (timerState.timestamp || now)
-    return timerState.elapsedMs + timeSinceLastUpdate
-  }
-
-  const currentElapsed = getCurrentElapsed()
 
   // Handlers de control del cronómetro
   const handleStart = () => {
-    timerChannel.start()
+    timerCore.start()
   }
 
   const handlePause = () => {
-    timerChannel.pause()
+    timerCore.pause()
   }
 
   const handleReset = () => {
-    timerChannel.reset()
+    timerCore.reset()
   }
 
   // Abrir ventana espejo del cronómetro
@@ -144,7 +119,7 @@ export const Directorio: React.FC = () => {
                   timerState.running ? 'text-green-600' : 'text-gray-600'
                 }`}
               >
-                {formatTime(currentElapsed)}
+                {formatTime(timerState.remainingSeconds)}
               </div>
               
               <div className="flex items-center justify-center space-x-2 mb-4">
