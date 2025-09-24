@@ -1,18 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { timerCore, TimerCoreState } from '../lib/timerCore'
 
-interface Stage {
-  id: string
-  meeting_id: string
-  stage_name: string
-  description?: string
-  duration: number
-  color_hex: string
-  alert_color_hex: string
-  stage_order: number
-  status: string
-  start_time?: string
-  end_time?: string
+interface SyncStatus {
+  source: 'none' | 'direct' | 'broadcast' | 'storage' | 'initial' | 'direct-recovery' | 'initial-storage'
+  lastUpdate: number
+  isHealthy: boolean
 }
 
 export const TimerSlave: React.FC = () => {
@@ -22,68 +14,169 @@ export const TimerSlave: React.FC = () => {
     currentStageIndex: 0,
     adjustments: 0
   })
-  
+
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    source: 'none',
+    lastUpdate: Date.now(),
+    isHealthy: false
+  })
+
   const unsubscribeRef = useRef<(() => void) | null>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
-  const animationFrameRef = useRef<number>()
-  const [lastUpdateTime, setLastUpdateTime] = useState(Date.now())
+  const healthCheckRef = useRef<number>()
+  const fallbackTimerRef = useRef<number>()
 
-  // Callback estable para actualizar estado
-  const updateTimerState = useCallback((state: TimerCoreState) => {
-    setTimerState(state)
-    setLastUpdateTime(Date.now())
-    console.log('TimerSlave: Estado actualizado:', state)
+  // 🎯 FUNCIÓN CENTRAL: Actualizar estado con tracking de fuente
+  const updateStateFromSource = useCallback((newState: TimerCoreState, source: SyncStatus['source']) => {
+    setTimerState(newState)
+    setSyncStatus({
+      source,
+      lastUpdate: Date.now(),
+      isHealthy: true
+    })
+    console.log(`TimerSlave: Estado actualizado desde ${source}:`, newState)
   }, [])
 
-  // Híbrido: Suscripción directa + BroadcastChannel para sincronización robusta
   useEffect(() => {
-    console.log('TimerSlave: Inicializando suscripción híbrida')
+    let isActive = true
     
-    // 1. Suscripción directa al timerCore (para actualizaciones inmediatas)
-    unsubscribeRef.current = timerCore.subscribe(updateTimerState)
+    console.log('TimerSlave: Inicializando arquitectura súper robusta de 4 capas')
     
-    // 2. BroadcastChannel para sincronización entre ventanas/pestañas
+    // 🏆 CAPA 1: SUSCRIPCIÓN DIRECTA AL CORE (Prioridad máxima)
+    // - 100% dependencia del timerCore
+    // - Actualizaciones instantáneas
+    // - Funciona igual que TimerMaster
     try {
-      channelRef.current = new BroadcastChannel('timer-core-sync')
-      
-      channelRef.current.onmessage = (event) => {
-        if (event.data && event.data.type === 'TIMER_STATE_UPDATE') {
-          console.log('TimerSlave: Recibido desde BroadcastChannel:', event.data.state)
-          updateTimerState(event.data.state)
+      unsubscribeRef.current = timerCore.subscribe((state) => {
+        if (isActive) {
+          updateStateFromSource(state, 'direct')
         }
-      }
-      
-      console.log('TimerSlave: BroadcastChannel inicializado')
+      })
+      console.log('TimerSlave: Capa 1 (Suscripción directa) - ✅ Inicializada')
     } catch (error) {
-      console.warn('TimerSlave: Error inicializando BroadcastChannel:', error)
-    }
-    
-    // 3. Obtener estado inicial desde localStorage como backup
-    try {
-      const stored = localStorage.getItem('timerCoreState')
-      if (stored) {
-        const storedState = JSON.parse(stored)
-        updateTimerState(storedState)
-        console.log('TimerSlave: Estado cargado desde localStorage')
-      }
-    } catch (error) {
-      console.warn('TimerSlave: Error cargando desde localStorage:', error)
+      console.error('TimerSlave: Error en Capa 1 (Suscripción directa):', error)
     }
 
+    // 🌐 CAPA 2: BROADCASTCHANNEL MULTI-PESTAÑA (Redundancia)
+    // - Sincronización entre pestañas
+    // - Backup si la suscripción directa falla
+    try {
+      channelRef.current = new BroadcastChannel('timer-core-sync')
+      channelRef.current.onmessage = (event) => {
+        if (isActive && event.data?.type === 'TIMER_STATE_UPDATE') {
+          // Solo usar BroadcastChannel si no hay actualización directa reciente
+          const timeSinceLastUpdate = Date.now() - syncStatus.lastUpdate
+          if (timeSinceLastUpdate > 2000 || syncStatus.source === 'storage') {
+            updateStateFromSource(event.data.state, 'broadcast')
+          }
+        }
+      }
+      console.log('TimerSlave: Capa 2 (BroadcastChannel) - ✅ Inicializada')
+    } catch (error) {
+      console.warn('TimerSlave: Capa 2 (BroadcastChannel) no disponible:', error)
+    }
+
+    // 💾 CAPA 3: LOCALSTORAGE POLLING (Fallback robusto)
+    // - Recovery si las otras capas fallan
+    // - Persistencia entre reinicios
+    const storagePolling = setInterval(() => {
+      if (isActive) {
+        try {
+          const stored = localStorage.getItem('timerCoreState')
+          if (stored) {
+            const storedState = JSON.parse(stored)
+            // Solo usar storage si no hay updates recientes de fuentes mejores
+            const timeSinceLastUpdate = Date.now() - syncStatus.lastUpdate
+            if (timeSinceLastUpdate > 5000) {
+              updateStateFromSource(storedState, 'storage')
+            }
+          }
+        } catch (error) {
+          console.warn('TimerSlave: Error en Capa 3 (localStorage):', error)
+        }
+      }
+    }, 3000) // Polling cada 3 segundos
+    console.log('TimerSlave: Capa 3 (localStorage polling) - ✅ Inicializada')
+
+    // 🔍 CAPA 4: HEALTH CHECK Y AUTO-RECOVERY
+    // - Detecta desconexiones
+    // - Intenta reconectar automáticamente
+    const healthCheck = setInterval(() => {
+      if (isActive) {
+        const timeSinceLastUpdate = Date.now() - syncStatus.lastUpdate
+        
+        if (timeSinceLastUpdate > 10000) {
+          // No hay updates por 10 segundos - marcar como unhealthy
+          setSyncStatus(prev => ({ ...prev, isHealthy: false }))
+          
+          // Intentar re-suscripción directa
+          try {
+            if (unsubscribeRef.current) {
+              unsubscribeRef.current()
+            }
+            unsubscribeRef.current = timerCore.subscribe((state) => {
+              if (isActive) {
+                updateStateFromSource(state, 'direct-recovery')
+              }
+            })
+            
+            console.log('TimerSlave: Capa 4 (Auto-recovery) - Re-suscripción ejecutada')
+          } catch (error) {
+            console.error('TimerSlave: Error en auto-recovery:', error)
+          }
+        }
+      }
+    }, 5000) // Health check cada 5 segundos
+    console.log('TimerSlave: Capa 4 (Health check & Auto-recovery) - ✅ Inicializada')
+
+    // 🔄 INICIALIZACIÓN: Obtener estado inicial del timerCore
+    try {
+      const initialState = timerCore.getState()
+      updateStateFromSource(initialState, 'initial')
+      console.log('TimerSlave: Estado inicial obtenido del timerCore')
+    } catch (error) {
+      // Fallback a localStorage si el core falla
+      console.warn('TimerSlave: Error obteniendo estado inicial del timerCore:', error)
+      try {
+        const stored = localStorage.getItem('timerCoreState')
+        if (stored) {
+          updateStateFromSource(JSON.parse(stored), 'initial-storage')
+          console.log('TimerSlave: Estado inicial obtenido de localStorage')
+        }
+      } catch (storageError) {
+        console.error('TimerSlave: Error en inicialización completa:', error, storageError)
+      }
+    }
+
+    // Referencias para cleanup
+    healthCheckRef.current = healthCheck
+    fallbackTimerRef.current = storagePolling
+
     return () => {
-      // Limpiar suscripción directa
+      isActive = false
+      
+      console.log('TimerSlave: Iniciando cleanup de 4 capas')
+      
+      // Cleanup suscripción directa
       if (unsubscribeRef.current) {
         unsubscribeRef.current()
+        console.log('TimerSlave: Capa 1 (Suscripción directa) - 🧹 Limpiada')
       }
       
-      // Limpiar BroadcastChannel
+      // Cleanup BroadcastChannel
       if (channelRef.current) {
         channelRef.current.close()
+        console.log('TimerSlave: Capa 2 (BroadcastChannel) - 🧹 Limpiada')
       }
       
-      console.log('TimerSlave: Suscripciones limpiadas')
+      // Cleanup timers
+      clearInterval(storagePolling)
+      clearInterval(healthCheck)
+      console.log('TimerSlave: Capas 3 y 4 (Polling & Health check) - 🧹 Limpiadas')
+      
+      console.log('TimerSlave: Cleanup completo - Todas las capas desconectadas')
     }
-  }, [updateTimerState])
+  }, [updateStateFromSource])
 
   // Formatear tiempo en formato MM:SS
   const formatTime = (seconds: number) => {
@@ -92,23 +185,93 @@ export const TimerSlave: React.FC = () => {
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
-  // Reflejo exacto del cronómetro principal - usar tiempo restante del timerCore
-  const remainingSeconds = timerState.remainingSeconds
+  // Determinar color del indicador de estado
+  const getStatusColor = () => {
+    if (!syncStatus.isHealthy) return 'bg-red-100 border-red-200 text-red-800'
+    
+    switch (syncStatus.source) {
+      case 'direct':
+      case 'direct-recovery':
+      case 'initial':
+        return 'bg-green-100 border-green-200 text-green-800'
+      case 'broadcast':
+        return 'bg-blue-100 border-blue-200 text-blue-800'
+      case 'storage':
+      case 'initial-storage':
+        return 'bg-yellow-100 border-yellow-200 text-yellow-800'
+      default:
+        return 'bg-gray-100 border-gray-200 text-gray-800'
+    }
+  }
+
+  const getStatusIcon = () => {
+    if (!syncStatus.isHealthy) return '🔴'
+    
+    switch (syncStatus.source) {
+      case 'direct':
+      case 'direct-recovery':
+      case 'initial':
+        return '🟢'
+      case 'broadcast':
+        return '🔵'
+      case 'storage':
+      case 'initial-storage':
+        return '🟡'
+      default:
+        return '⚪'
+    }
+  }
+
+  const getSourceDescription = () => {
+    switch (syncStatus.source) {
+      case 'direct':
+        return 'Suscripción directa al timerCore'
+      case 'broadcast':
+        return 'BroadcastChannel (multi-pestaña)'
+      case 'storage':
+        return 'localStorage (fallback)'
+      case 'initial':
+        return 'Estado inicial del timerCore'
+      case 'direct-recovery':
+        return 'Re-suscripción automática'
+      case 'initial-storage':
+        return 'Estado inicial desde localStorage'
+      default:
+        return 'Sin sincronización activa'
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl text-center">
-        {/* Header */}
+        
+        {/* Status de sincronización súper robusto */}
+        <div className={`mb-6 p-4 rounded-lg border-2 transition-all duration-300 ${getStatusColor()}`}>
+          <div className="flex items-center justify-center space-x-2 mb-2">
+            <span className="text-2xl">{getStatusIcon()}</span>
+            <h4 className="font-bold text-lg">Estado de Sincronización</h4>
+          </div>
+          <div className="text-sm font-medium">
+            <div>🔗 Fuente: {getSourceDescription()}</div>
+            <div>⏰ Última actualización: {new Date(syncStatus.lastUpdate).toLocaleTimeString()}</div>
+            <div>🛡️ Estado: {syncStatus.isHealthy ? 'Saludable ✅' : 'Reconectando ⚠️'}</div>
+          </div>
+        </div>
+
+        {/* Header con indicador de estado del cronómetro */}
         <div className="mb-8">
           <div className="flex items-center justify-center space-x-3 mb-4">
             <div 
-              className={`w-4 h-4 rounded-full transition-colors duration-300 ${
+              className={`w-6 h-6 rounded-full transition-colors duration-300 ${
                 timerState.running ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
               }`}
             />
             <h1 className="text-3xl font-bold text-gray-900">
-              Cronómetro de Reunión
+              Cronómetro Slave
             </h1>
+            <div className="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded-full font-mono">
+              4-Capas
+            </div>
           </div>
           
           <p className="text-gray-600">
@@ -121,12 +284,12 @@ export const TimerSlave: React.FC = () => {
           <div 
             className={`text-8xl font-mono font-bold mb-4 transition-colors duration-300 ${
               timerState.running ? 'text-green-600' : 'text-gray-600'
-            }`}
+            } ${!syncStatus.isHealthy ? 'opacity-50' : ''}`}
           >
-            {formatTime(remainingSeconds)}
+            {formatTime(timerState.remainingSeconds)}
           </div>
           
-          {/* Indicador de estado */}
+          {/* Indicador de estado visual */}
           <div className="flex items-center justify-center space-x-2">
             <div 
               className={`w-3 h-3 rounded-full transition-colors duration-300 ${
@@ -141,13 +304,13 @@ export const TimerSlave: React.FC = () => {
           </div>
         </div>
 
-        {/* Información adicional */}
-        <div className="bg-gray-50 rounded-lg p-6">
+        {/* Información detallada del estado */}
+        <div className="bg-gray-50 rounded-lg p-6 mb-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Información del Cronómetro
+            Estado Completo del Cronómetro
           </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div className="text-left">
               <span className="text-gray-600">Estado:</span>
               <span className={`ml-2 font-medium ${
@@ -159,8 +322,8 @@ export const TimerSlave: React.FC = () => {
             
             <div className="text-left">
               <span className="text-gray-600">Tiempo restante:</span>
-              <span className="ml-2 font-medium text-gray-900">
-                {formatTime(remainingSeconds)}
+              <span className="ml-2 font-medium font-mono text-blue-600">
+                {formatTime(timerState.remainingSeconds)}
               </span>
             </div>
             
@@ -180,30 +343,21 @@ export const TimerSlave: React.FC = () => {
                 {timerState.adjustments > 0 ? '+' : ''}{timerState.adjustments}s
               </span>
             </div>
-            
-            <div className="text-left">
-              <span className="text-gray-600">Última actualización:</span>
-              <span className="ml-2 font-medium text-gray-900">
-                {new Date(lastUpdateTime).toLocaleTimeString()}
-              </span>
-            </div>
-            
-            <div className="text-left">
-              <span className="text-gray-600">Sincronización:</span>
-              <span className="ml-2 font-medium text-green-600">
-                ✓ Híbrida (Directa + BroadcastChannel)
-              </span>
-            </div>
           </div>
         </div>
 
-        {/* Instrucciones */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-blue-800 text-sm">
-            💡 <strong>Vista espejo híbrida:</strong> Este cronómetro se sincroniza automáticamente con el cronómetro principal 
-            usando suscripción directa + BroadcastChannel para garantizar sincronización entre ventanas/pestañas. 
-            Los controles están disponibles en la ventana principal de gestión de actividades.
-          </p>
+        {/* Información de arquitectura */}
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <h4 className="font-bold text-purple-900 mb-2">🛡️ Arquitectura Súper Robusta</h4>
+          <div className="text-purple-800 text-sm space-y-1">
+            <div>🏆 <strong>Capa 1:</strong> Suscripción directa al timerCore (100% dependencia)</div>
+            <div>🌐 <strong>Capa 2:</strong> BroadcastChannel para multi-pestaña</div>
+            <div>💾 <strong>Capa 3:</strong> localStorage polling como fallback</div>
+            <div>🔍 <strong>Capa 4:</strong> Health check y auto-recovery</div>
+          </div>
+          <div className="mt-3 text-xs text-purple-700">
+            💡 Los controles están disponibles en la ventana principal de gestión de actividades.
+          </div>
         </div>
       </div>
     </div>
