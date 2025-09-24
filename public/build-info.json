@@ -1,0 +1,15 @@
+{
+  "buildDate": "2025-09-24T01:03:49.676Z",
+  "buildHash": "9715a3f800f85441e8c701956f9df5b8e410e7a3",
+  "buildHashShort": "9715a3f",
+  "buildBranch": "main",
+  "buildCommit": "1.2.2",
+  "buildAuthor": "Jaimemprendedor2",
+  "version": "v1.2.2-2025.09.23.2203",
+  "autoVersion": "v1.2.2-2025.09.23.2203",
+  "commitCount": 58,
+  "lastTag": "v1.2.2",
+  "environment": "development",
+  "timestamp": 1758675830060,
+  "deployId": "main-9715a3f-1758675830060"
+}
