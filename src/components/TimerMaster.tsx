@@ -116,23 +116,17 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
   const handleAdd30 = () => {
     const newAdjustments = timerState.adjustments + 30
     timerCore.updateAdjustments(newAdjustments)
-    // Recalcular tiempo restante con los nuevos ajustes
-    const currentStage = getCurrentStage()
-    if (currentStage) {
-      const newRemaining = currentStage.duration + newAdjustments
-      timerCore.updateRemainingSeconds(newRemaining)
-    }
+    // Sumar 30 segundos al tiempo restante actual
+    const newRemaining = Math.max(0, timerState.remainingSeconds + 30)
+    timerCore.updateRemainingSeconds(newRemaining)
   }
 
   const handleSub30 = () => {
     const newAdjustments = Math.max(0, timerState.adjustments - 30)
     timerCore.updateAdjustments(newAdjustments)
-    // Recalcular tiempo restante con los nuevos ajustes
-    const currentStage = getCurrentStage()
-    if (currentStage) {
-      const newRemaining = currentStage.duration + newAdjustments
-      timerCore.updateRemainingSeconds(newRemaining)
-    }
+    // Restar 30 segundos al tiempo restante actual
+    const newRemaining = Math.max(0, timerState.remainingSeconds - 30)
+    timerCore.updateRemainingSeconds(newRemaining)
   }
 
   // Obtener información de la etapa actual
