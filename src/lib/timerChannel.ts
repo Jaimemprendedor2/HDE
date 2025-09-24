@@ -1,6 +1,6 @@
 /**
- * Cliente simplificado para sincronización del cronómetro
- * Usa solo localStorage + BroadcastChannel (sin SharedWorker)
+ * Cliente mejorado para sincronización del cronómetro
+ * Evita conflictos entre múltiples ventanas usando un sistema de liderazgo
  */
 
 export interface TimerState {
@@ -21,13 +21,18 @@ class TimerChannel {
   }
   private isConnected = false
   private intervalId: number | null = null
+  private windowId: string
+  private isLeader: boolean = false
+  private lastSyncTime: number = 0
 
   constructor() {
+    // Generar ID único para esta ventana
+    this.windowId = `window_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     this.initializeConnection()
   }
 
   /**
-   * Inicializa la conexión usando solo BroadcastChannel + localStorage
+   * Inicializa la conexión usando BroadcastChannel + localStorage
    */
   private initializeConnection() {
     try {
@@ -40,10 +45,10 @@ class TimerChannel {
       // Leer estado inicial del localStorage
       this.readInitialState()
       this.isConnected = true
-      console.log('TimerChannel: Using BroadcastChannel (simplified)')
+      console.log(`TimerChannel: Using BroadcastChannel (window: ${this.windowId})`)
       
-      // Iniciar loop de actualización
-      this.startUpdateLoop()
+      // Iniciar sistema de liderazgo
+      this.startLeadershipSystem()
       
     } catch (error) {
       console.error('TimerChannel: Error initializing connection:', error)
@@ -57,8 +62,118 @@ class TimerChannel {
   private setupLocalOnly() {
     this.isConnected = true
     this.readInitialState()
+    this.isLeader = true
     console.log('TimerChannel: Using local-only mode')
     this.startUpdateLoop()
+  }
+
+  /**
+   * Sistema de liderazgo para evitar conflictos entre ventanas
+   */
+  private startLeadershipSystem() {
+    // Verificar si hay un líder activo
+    this.checkForLeader()
+    
+    // Intentar convertirse en líder
+    setTimeout(() => {
+      this.attemptLeadership()
+    }, 100)
+    
+    // Verificar liderazgo periódicamente
+    setInterval(() => {
+      this.checkLeadership()
+    }, 2000)
+  }
+
+  /**
+   * Verifica si hay un líder activo
+   */
+  private checkForLeader() {
+    try {
+      const leaderInfo = localStorage.getItem('timerLeader')
+      if (leaderInfo) {
+        const leader = JSON.parse(leaderInfo)
+        const now = Date.now()
+        
+        // Si el líder no ha enviado heartbeat en 3 segundos, está inactivo
+        if (now - leader.lastHeartbeat > 3000) {
+          console.log('TimerChannel: Leader is inactive, attempting to take over')
+          this.attemptLeadership()
+        } else {
+          console.log('TimerChannel: Following existing leader')
+          this.isLeader = false
+          this.startUpdateLoop()
+        }
+      } else {
+        this.attemptLeadership()
+      }
+    } catch (error) {
+      console.warn('TimerChannel: Error checking leader:', error)
+      this.attemptLeadership()
+    }
+  }
+
+  /**
+   * Intenta convertirse en líder
+   */
+  private attemptLeadership() {
+    try {
+      const leaderInfo = {
+        windowId: this.windowId,
+        lastHeartbeat: Date.now()
+      }
+      localStorage.setItem('timerLeader', JSON.stringify(leaderInfo))
+      this.isLeader = true
+      console.log(`TimerChannel: Became leader (${this.windowId})`)
+      this.startUpdateLoop()
+      this.startHeartbeat()
+    } catch (error) {
+      console.warn('TimerChannel: Could not become leader:', error)
+      this.isLeader = false
+      this.startUpdateLoop()
+    }
+  }
+
+  /**
+   * Verifica el estado del liderazgo
+   */
+  private checkLeadership() {
+    if (!this.isLeader) return
+    
+    try {
+      const leaderInfo = localStorage.getItem('timerLeader')
+      if (leaderInfo) {
+        const leader = JSON.parse(leaderInfo)
+        if (leader.windowId !== this.windowId) {
+          // Otro líder tomó el control
+          this.isLeader = false
+          console.log('TimerChannel: Lost leadership to another window')
+        }
+      }
+    } catch (error) {
+      console.warn('TimerChannel: Error checking leadership:', error)
+    }
+  }
+
+  /**
+   * Inicia el heartbeat del líder
+   */
+  private startHeartbeat() {
+    if (!this.isLeader) return
+    
+    setInterval(() => {
+      if (this.isLeader) {
+        try {
+          const leaderInfo = {
+            windowId: this.windowId,
+            lastHeartbeat: Date.now()
+          }
+          localStorage.setItem('timerLeader', JSON.stringify(leaderInfo))
+        } catch (error) {
+          console.warn('TimerChannel: Error sending heartbeat:', error)
+        }
+      }
+    }, 1000)
   }
 
   /**
@@ -95,24 +210,52 @@ class TimerChannel {
     }
     
     this.notifyStateCallbacks()
+    
+    // Solo el líder actualiza el estado compartido
+    if (this.isLeader && now - this.lastSyncTime > 500) {
+      this.broadcastState()
+      this.lastSyncTime = now
+    }
+  }
+
+  /**
+   * Envía el estado actual por broadcast
+   */
+  private broadcastState() {
+    if (this.broadcastChannel) {
+      this.broadcastChannel.postMessage({
+        type: 'STATE',
+        payload: this.currentState,
+        windowId: this.windowId
+      })
+    }
   }
 
   /**
    * Maneja mensajes del broadcast channel
    */
   private handleMessage(data: any) {
+    // Ignorar mensajes de la misma ventana
+    if (data.windowId === this.windowId) return
+    
     switch (data.type) {
       case 'START':
-        this.handleStart()
+        if (!this.isLeader) {
+          this.handleStart()
+        }
         break
       case 'PAUSE':
-        this.handlePause()
+        if (!this.isLeader) {
+          this.handlePause()
+        }
         break
       case 'RESET':
-        this.handleReset()
+        if (!this.isLeader) {
+          this.handleReset()
+        }
         break
       case 'STATE':
-        if (data.payload) {
+        if (data.payload && !this.isLeader) {
           this.currentState = data.payload
           this.notifyStateCallbacks()
         }
@@ -206,7 +349,10 @@ class TimerChannel {
    */
   private broadcastMessage(type: string) {
     if (this.broadcastChannel) {
-      this.broadcastChannel.postMessage({ type })
+      this.broadcastChannel.postMessage({ 
+        type,
+        windowId: this.windowId
+      })
     }
   }
 
