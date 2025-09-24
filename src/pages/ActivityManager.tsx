@@ -4,7 +4,7 @@ import { AttendanceList } from '../components/AttendanceList'
 import { SessionEvaluationForm } from '../components/SessionEvaluationForm'
 import { SessionNotesEditor } from '../components/SessionNotesEditor'
 import { StageManager } from '../components/StageManager'
-import { Timer } from '../components/Timer'
+import { TimerMaster } from '../components/TimerMaster'
 import { useTimerKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { supabase } from '../services/supabaseClient'
 import { syncChannel } from '../services/syncChannel'
@@ -422,7 +422,7 @@ export const ActivityManager: React.FC = () => {
           {/* Timer Section */}
           {(showTimer || isSessionActive) && (
             <div className="bg-white rounded-lg shadow-md">
-              <Timer 
+              <TimerMaster 
                 stages={stages}
                 isSessionActive={isSessionActive}
               />

@@ -15,7 +15,7 @@ interface Stage {
   end_time?: string
 }
 
-export const Meeting: React.FC = () => {
+export const TimerSlave: React.FC = () => {
   const [timerState, setTimerState] = useState<TimerCoreState>({
     running: false,
     remainingSeconds: 0,

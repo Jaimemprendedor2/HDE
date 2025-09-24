@@ -6,7 +6,7 @@ import { Navigation } from './components/Navigation'
 import { ActivityManager } from './pages/ActivityManager'
 import { ActivitySelector } from './pages/ActivitySelector'
 import { Directorio } from './pages/Directorio'
-import { Meeting } from './pages/Meeting'
+import { TimerSlave } from './pages/TimerSlave'
 
 function App() {
   const location = useLocation()
@@ -24,9 +24,9 @@ function App() {
         <Route path={routes.home} element={<ActivitySelector />} />
         <Route path={routes.activitySelector} element={<ActivitySelector />} />
         <Route path="/activity/:meetingId" element={<ActivityManager />} />
-        <Route path={routes.timerPopup} element={<Meeting />} />
+        <Route path={routes.timerPopup} element={<TimerSlave />} />
         <Route path={routes.directorio} element={<Directorio />} />
-        <Route path={routes.meeting} element={<Meeting />} />
+        <Route path={routes.meeting} element={<TimerSlave />} />
       </Routes>
       <DebugInfo />
     </div>

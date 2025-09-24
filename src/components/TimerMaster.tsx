@@ -20,11 +20,8 @@ interface TimerProps {
   isSessionActive: boolean
 }
 
-export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
-  // Estado del timer
-  const [currentStageIndex, setCurrentStageIndex] = useState(0)
-  const [remainingSeconds, setRemainingSeconds] = useState(0)
-  const [adjustments, setAdjustments] = useState(0)
+export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
+  // Estado del timer - reflejo puro del Timer Core
   const [timerState, setTimerState] = useState<TimerCoreState>({
     running: false,
     remainingSeconds: 0,
@@ -32,8 +29,6 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     adjustments: 0
   })
   
-  // Referencias para el loop de actualización
-  const animationFrameRef = useRef<number>()
   const unsubscribeRef = useRef<(() => void) | null>(null)
 
   // Inicializar con la primera etapa cuando cambien las etapas
@@ -41,25 +36,19 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     if (stages.length > 0) {
       const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
       const firstStage = sortedStages[0]
-      setCurrentStageIndex(0)
-      setRemainingSeconds(firstStage.duration)
-      setAdjustments(0)
       
-      // Guardar información de etapas en localStorage para sincronización
-      localStorage.setItem('currentStages', JSON.stringify(stages))
-      localStorage.setItem('currentStageIndex', '0')
-      localStorage.setItem('timerAdjustments', '0')
+      // Sincronizar con Timer Core
+      timerCore.updateCurrentStageIndex(0)
+      timerCore.updateRemainingSeconds(firstStage.duration)
+      timerCore.updateAdjustments(0)
     }
   }, [stages])
 
-  // Conectar al timerCore al montar
+  // Conectar al timerCore al montar - reflejo puro
   useEffect(() => {
     // Suscribirse a cambios de estado del Timer Core
     unsubscribeRef.current = timerCore.subscribe((state) => {
       setTimerState(state)
-      setCurrentStageIndex(state.currentStageIndex)
-      setAdjustments(state.adjustments)
-      setRemainingSeconds(state.remainingSeconds)
     })
 
     return () => {
@@ -69,75 +58,22 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     }
   }, [])
 
-  // Actualizar timerCore cuando cambien las variables de control
-  useEffect(() => {
-    timerCore.updateCurrentStageIndex(currentStageIndex)
-  }, [currentStageIndex])
+  // El Timer Master es un reflejo puro - no necesita sincronización local
 
-  useEffect(() => {
-    timerCore.updateAdjustments(adjustments)
-  }, [adjustments])
-
-  // Obtener etapa actual
+  // Obtener etapa actual para mostrar información
   const getCurrentStage = () => {
     if (stages.length === 0) return null
     const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
-    return sortedStages[currentStageIndex] || null
+    return sortedStages[timerState.currentStageIndex] || null
   }
 
-  // Calcular tiempo restante basado en la etapa actual
-  const calculateRemainingTime = () => {
-    const currentStage = getCurrentStage()
-    if (!currentStage) return 0
-    
-    const totalDuration = currentStage.duration + adjustments
-    return totalDuration
-  }
+  // El Timer Master es un reflejo puro - no necesita lógica de actualización
 
-  // Actualizar el timerCore cuando cambien las variables
-  useEffect(() => {
-    const remaining = calculateRemainingTime()
-    setRemainingSeconds(remaining)
-    timerCore.updateRemainingSeconds(remaining)
-  }, [currentStageIndex, adjustments, stages])
-
-  // Manejar cambio de etapa cuando el tiempo se agote
-  useEffect(() => {
-    if (timerState.remainingSeconds <= 0 && timerState.running) {
-      const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
-      if (currentStageIndex < sortedStages.length - 1) {
-        // Ir a la siguiente etapa
-        const nextIndex = currentStageIndex + 1
-        const nextStage = sortedStages[nextIndex]
-        setCurrentStageIndex(nextIndex)
-        setRemainingSeconds(nextStage.duration)
-        setAdjustments(0)
-        timerCore.reset()
-      } else {
-        // Última etapa, pausar
-        timerCore.pause()
-      }
-    }
-  }, [timerState.remainingSeconds, timerState.running, currentStageIndex, stages])
-
-  // El timerCore maneja la actualización automáticamente cada segundo
-
-  // Actualizar tiempo restante cuando cambian los ajustes
-  useEffect(() => {
-    if (!timerState.running) {
-      const remaining = calculateRemainingTime()
-      setRemainingSeconds(remaining)
-    }
-  }, [adjustments, currentStageIndex, timerState.running])
-
-  // Controles del timer usando timerCore
+  // Controles del timer - solo actúan sobre el Timer Core
   const handlePlayPause = () => {
     if (timerState.running) {
       timerCore.pause()
     } else {
-      // Antes de iniciar, sincronizar el tiempo restante
-      const remaining = calculateRemainingTime()
-      timerCore.updateRemainingSeconds(remaining)
       timerCore.start()
     }
   }
@@ -145,9 +81,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
   const handleReset = () => {
     const currentStage = getCurrentStage()
     if (currentStage) {
-      setRemainingSeconds(currentStage.duration)
-      setAdjustments(0)
-      // Sincronizar con timerCore antes de resetear
+      // Actualizar el Timer Core con la duración de la etapa actual
       timerCore.updateRemainingSeconds(currentStage.duration)
       timerCore.reset()
     }
@@ -155,48 +89,50 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
 
   const handleNext = () => {
     const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
-    if (currentStageIndex < sortedStages.length - 1) {
-      const nextIndex = currentStageIndex + 1
+    if (timerState.currentStageIndex < sortedStages.length - 1) {
+      const nextIndex = timerState.currentStageIndex + 1
       const nextStage = sortedStages[nextIndex]
-      setCurrentStageIndex(nextIndex)
-      setRemainingSeconds(nextStage.duration)
-      setAdjustments(0)
-      // Sincronizar con timerCore
+      // Actualizar el Timer Core
+      timerCore.updateCurrentStageIndex(nextIndex)
       timerCore.updateRemainingSeconds(nextStage.duration)
+      timerCore.updateAdjustments(0)
       timerCore.reset()
     }
   }
 
   const handlePrev = () => {
-    if (currentStageIndex > 0) {
+    if (timerState.currentStageIndex > 0) {
       const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
-      const prevIndex = currentStageIndex - 1
+      const prevIndex = timerState.currentStageIndex - 1
       const prevStage = sortedStages[prevIndex]
-      setCurrentStageIndex(prevIndex)
-      setRemainingSeconds(prevStage.duration)
-      setAdjustments(0)
-      // Sincronizar con timerCore
+      // Actualizar el Timer Core
+      timerCore.updateCurrentStageIndex(prevIndex)
       timerCore.updateRemainingSeconds(prevStage.duration)
+      timerCore.updateAdjustments(0)
       timerCore.reset()
     }
   }
 
   const handleAdd30 = () => {
-    const newAdjustments = adjustments + 30
-    setAdjustments(newAdjustments)
-    // Sincronizar con timerCore
+    const newAdjustments = timerState.adjustments + 30
     timerCore.updateAdjustments(newAdjustments)
-    const remaining = calculateRemainingTime()
-    timerCore.updateRemainingSeconds(remaining)
+    // Recalcular tiempo restante con los nuevos ajustes
+    const currentStage = getCurrentStage()
+    if (currentStage) {
+      const newRemaining = currentStage.duration + newAdjustments
+      timerCore.updateRemainingSeconds(newRemaining)
+    }
   }
 
   const handleSub30 = () => {
-    const newAdjustments = Math.max(0, adjustments - 30)
-    setAdjustments(newAdjustments)
-    // Sincronizar con timerCore
+    const newAdjustments = Math.max(0, timerState.adjustments - 30)
     timerCore.updateAdjustments(newAdjustments)
-    const remaining = calculateRemainingTime()
-    timerCore.updateRemainingSeconds(remaining)
+    // Recalcular tiempo restante con los nuevos ajustes
+    const currentStage = getCurrentStage()
+    if (currentStage) {
+      const newRemaining = currentStage.duration + newAdjustments
+      timerCore.updateRemainingSeconds(newRemaining)
+    }
   }
 
   // Obtener información de la etapa actual
@@ -206,11 +142,11 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     return sortedStages[currentStageIndex] || sortedStages[0]
   }
 
-  // Calcular estado de alerta y progreso
+  // Calcular estado de alerta y progreso usando el estado del Timer Core
   const currentStageInfo = getCurrentStageInfo()
-  const isAlertPhase = remainingSeconds <= 30 && remainingSeconds > 0
+  const isAlertPhase = timerState.remainingSeconds <= 30 && timerState.remainingSeconds > 0
   const progress = currentStageInfo ? 
-    Math.min(100, Math.max(0, ((currentStageInfo.duration + adjustments - remainingSeconds) / (currentStageInfo.duration + adjustments)) * 100)) : 0
+    Math.min(100, Math.max(0, ((currentStageInfo.duration + timerState.adjustments - timerState.remainingSeconds) / (currentStageInfo.duration + timerState.adjustments)) * 100)) : 0
 
   // Formatear tiempo
   const formatTime = (seconds: number) => {
@@ -248,7 +184,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
             }}
           />
           <h2 className="text-xl font-semibold text-gray-900">
-            Etapa {currentStageIndex + 1}: {currentStageInfo?.stage_name || 'Sin nombre'}
+            Etapa {timerState.currentStageIndex + 1}: {currentStageInfo?.stage_name || 'Sin nombre'}
           </h2>
         </div>
         {currentStageInfo?.description && (
@@ -284,7 +220,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
             isAlertPhase ? 'text-red-600' : 'text-gray-900'
           }`}
         >
-          {formatTime(remainingSeconds)}
+          {formatTime(timerState.remainingSeconds)}
         </div>
         
         {/* Controles principales */}
@@ -333,7 +269,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
         <div className="flex justify-center space-x-2">
           <button
             onClick={handlePrev}
-            disabled={!isSessionActive || currentStageIndex === 0}
+            disabled={!isSessionActive || timerState.currentStageIndex === 0}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
             title="Etapa anterior"
           >
@@ -362,7 +298,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
           
           <button
             onClick={handleNext}
-            disabled={!isSessionActive || currentStageIndex >= stages.length - 1}
+            disabled={!isSessionActive || timerState.currentStageIndex >= stages.length - 1}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
             title="Siguiente etapa"
           >
@@ -385,11 +321,11 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
             <div
               key={stage.id}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                index === currentStageIndex
+                index === timerState.currentStageIndex
                   ? 'text-white shadow-md transform scale-105'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
-              style={index === currentStageIndex ? {
+              style={index === timerState.currentStageIndex ? {
                 backgroundColor: isAlertPhase 
                   ? stage.alert_color_hex 
                   : stage.color_hex
