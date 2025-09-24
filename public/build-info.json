@@ -1,15 +1,15 @@
 {
-  "buildDate": "2025-09-24T01:54:01.692Z",
-  "buildHash": "090a23284ee1a4d5ee0282390b054f92db22e46d",
-  "buildHashShort": "090a232",
+  "buildDate": "2025-09-24T02:04:55.115Z",
+  "buildHash": "ea11585e677ecb590bb336edc90c2483c17950c6",
+  "buildHashShort": "ea11585",
   "buildBranch": "main",
-  "buildCommit": "1.3.2",
+  "buildCommit": "1.3.3",
   "buildAuthor": "Jaimemprendedor2",
-  "version": "v1.3.2-2025.09.23.2254",
-  "autoVersion": "v1.3.2-2025.09.23.2254",
-  "commitCount": 76,
-  "lastTag": "v1.3.2",
+  "version": "v1.3.3-2025.09.23.2304",
+  "autoVersion": "v1.3.3-2025.09.23.2304",
+  "commitCount": 80,
+  "lastTag": "v1.3.3",
   "environment": "development",
-  "timestamp": 1758678841980,
-  "deployId": "main-090a232-1758678841980"
+  "timestamp": 1758679495387,
+  "deployId": "main-ea11585-1758679495387"
 }
