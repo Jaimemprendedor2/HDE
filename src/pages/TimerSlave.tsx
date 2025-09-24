@@ -64,9 +64,11 @@ export const TimerSlave: React.FC = () => {
       channelRef.current = new BroadcastChannel('timer-core-sync')
       channelRef.current.onmessage = (event) => {
         if (isActive && event.data?.type === 'TIMER_STATE_UPDATE') {
-          // Solo usar BroadcastChannel si no hay actualización directa reciente
-          const timeSinceLastUpdate = Date.now() - syncStatus.lastUpdate
-          if (timeSinceLastUpdate > 2000 || syncStatus.source === 'storage') {
+          // Siempre usar BroadcastChannel para actualizaciones críticas (start/pause/reset)
+          const isCriticalUpdate = event.data.state.running !== timerState.running || 
+                                   event.data.state.remainingSeconds !== timerState.remainingSeconds
+          
+          if (isCriticalUpdate) {
             updateStateFromSource(event.data.state, 'broadcast')
           }
         }
@@ -85,9 +87,12 @@ export const TimerSlave: React.FC = () => {
           const stored = localStorage.getItem('timerCoreState')
           if (stored) {
             const storedState = JSON.parse(stored)
-            // Solo usar storage si no hay updates recientes de fuentes mejores
-            const timeSinceLastUpdate = Date.now() - syncStatus.lastUpdate
-            if (timeSinceLastUpdate > 5000) {
+            // Verificar si hay cambios significativos en el estado
+            const hasSignificantChange = storedState.running !== timerState.running ||
+                                       Math.abs(storedState.remainingSeconds - timerState.remainingSeconds) > 1 ||
+                                       storedState.currentStageIndex !== timerState.currentStageIndex
+            
+            if (hasSignificantChange) {
               updateStateFromSource(storedState, 'storage')
             }
           }
@@ -95,7 +100,7 @@ export const TimerSlave: React.FC = () => {
           console.warn('TimerSlave: Error en Capa 3 (localStorage):', error)
         }
       }
-    }, 3000) // Polling cada 3 segundos
+    }, 1000) // Polling cada 1 segundo para mayor responsividad
     console.log('TimerSlave: Capa 3 (localStorage polling) - ✅ Inicializada')
 
     // 🔍 CAPA 4: HEALTH CHECK Y AUTO-RECOVERY
