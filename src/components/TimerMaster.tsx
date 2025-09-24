@@ -138,7 +138,7 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
   const getCurrentStageInfo = () => {
     if (stages.length === 0) return null
     const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
-    return sortedStages[currentStageIndex] || sortedStages[0]
+    return sortedStages[timerState.currentStageIndex] || sortedStages[0]
   }
 
   // Calcular estado de alerta y progreso usando el estado del Timer Core
