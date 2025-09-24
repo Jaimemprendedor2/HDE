@@ -80,11 +80,23 @@ export const ActivityManager: React.FC = () => {
         break
       case 'ADD30':
         const currentAdjustments = timerCore.getState().adjustments
-        timerCore.updateAdjustments(currentAdjustments + 30)
+        const newAdjustments = currentAdjustments + 30
+        timerCore.updateAdjustments(newAdjustments)
+        // Actualizar tiempo restante si está corriendo
+        if (timerCore.getState().running) {
+          const currentRemaining = timerCore.getState().remainingSeconds
+          timerCore.updateRemainingSeconds(currentRemaining + 30)
+        }
         break
       case 'SUB30':
         const currentAdjustmentsSub = timerCore.getState().adjustments
-        timerCore.updateAdjustments(currentAdjustmentsSub - 30)
+        const newAdjustmentsSub = currentAdjustmentsSub - 30
+        timerCore.updateAdjustments(newAdjustmentsSub)
+        // Actualizar tiempo restante si está corriendo
+        if (timerCore.getState().running) {
+          const currentRemainingSub = timerCore.getState().remainingSeconds
+          timerCore.updateRemainingSeconds(Math.max(0, currentRemainingSub - 30))
+        }
         break
       case 'NEXT':
         const currentIndex = timerCore.getState().currentStageIndex
