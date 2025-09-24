@@ -166,18 +166,19 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
     timerCore.updateAdjustments(newAdjustments)
     
     if (timerState.running) {
-      // Si está corriendo, restar 30 segundos al tiempo actual
+      // Si está corriendo, restar 30 segundos al tiempo actual (mínimo 0)
       const newRemaining = Math.max(0, timerState.remainingSeconds - 30)
       timerCore.updateRemainingSeconds(newRemaining)
+      console.log('TimerMaster: Restando 30s (corriendo):', newRemaining)
     } else {
-      // Si está detenido, cuadrar a múltiplos de 30 segundos
+      // Si está detenido, cuadrar a múltiplos de 30 segundos (mínimo 0)
       const currentStage = getCurrentStage()
       if (currentStage) {
         const baseDuration = currentStage.duration
         const totalDuration = baseDuration + newAdjustments
-        const roundedDuration = Math.ceil(totalDuration / 30) * 30 // Redondear hacia arriba a múltiplos de 30
+        const roundedDuration = Math.max(0, Math.ceil(totalDuration / 30) * 30) // Mínimo 0
         timerCore.updateRemainingSeconds(roundedDuration)
-        console.log('TimerMaster: Cuadrado a múltiplo de 30:', roundedDuration)
+        console.log('TimerMaster: Cuadrado a múltiplo de 30 (detenido):', roundedDuration)
       }
     }
   }
