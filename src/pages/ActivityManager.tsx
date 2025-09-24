@@ -423,7 +423,7 @@ export const ActivityManager: React.FC = () => {
           {/* Timer Section */}
           {(showTimer || isSessionActive) && (
             <div className="bg-white rounded-lg shadow-md">
-              <TimerMasterDebug 
+              <TimerMaster 
                 stages={stages}
                 isSessionActive={isSessionActive}
               />

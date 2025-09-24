@@ -37,10 +37,15 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
       const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
       const firstStage = sortedStages[0]
       
-      // Sincronizar con Timer Core
-      timerCore.updateCurrentStageIndex(0)
-      timerCore.updateRemainingSeconds(firstStage.duration)
-      timerCore.updateAdjustments(0)
+      // Solo actualizar si el Timer Core no tiene tiempo restante válido
+      const currentState = timerCore.getState()
+      if (currentState.remainingSeconds <= 0) {
+        // Sincronizar con Timer Core
+        timerCore.updateCurrentStageIndex(0)
+        timerCore.updateRemainingSeconds(firstStage.duration)
+        timerCore.updateAdjustments(0)
+        console.log('TimerMaster: Inicializando con etapa:', firstStage.stage_name, 'duración:', firstStage.duration)
+      }
     }
   }, [stages])
 
