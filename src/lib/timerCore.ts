@@ -17,9 +17,9 @@ class TimerCore {
     running: false,
     remainingSeconds: 0,
     currentStageIndex: 0,
-    adjustments: 0
+    adjustments: 0,
   }
-  
+
   private callbacks: Set<TimerCoreCallback> = new Set()
   private intervalId: number | null = null
   private isInitialized = false
@@ -46,7 +46,21 @@ class TimerCore {
   private initializeBroadcastChannel() {
     try {
       this.broadcastChannel = new BroadcastChannel('timer-core-sync')
-      console.log('TimerCore: BroadcastChannel inicializado para sincronización')
+
+      // Escuchar solicitudes de estado desde TimerSlave
+      this.broadcastChannel.onmessage = event => {
+        if (event.data?.type === 'REQUEST_CURRENT_STATE') {
+          console.log(
+            'TimerCore: Recibida solicitud de estado desde TimerSlave'
+          )
+          // Responder inmediatamente con el estado actual
+          this.broadcastStateUpdate(this.getState())
+        }
+      }
+
+      console.log(
+        'TimerCore: BroadcastChannel inicializado para sincronización con respuesta a solicitudes'
+      )
     } catch (error) {
       console.warn('TimerCore: BroadcastChannel no disponible:', error)
     }
@@ -85,10 +99,15 @@ class TimerCore {
   private startUpdateLoop() {
     this.intervalId = window.setInterval(() => {
       if (this.state.running && this.state.remainingSeconds > 0) {
-        this.state.remainingSeconds = Math.max(0, this.state.remainingSeconds - 1)
+        this.state.remainingSeconds = Math.max(
+          0,
+          this.state.remainingSeconds - 1
+        )
         this.saveStateToStorage()
         this.notifyCallbacks()
-        console.log(`TimerCore: Tick - ${this.state.remainingSeconds} seconds remaining`)
+        console.log(
+          `TimerCore: Tick - ${this.state.remainingSeconds} seconds remaining`
+        )
       }
     }, 1000) // Actualizar cada segundo
   }
@@ -98,7 +117,7 @@ class TimerCore {
    */
   private notifyCallbacks() {
     const stateSnapshot = { ...this.state }
-    
+
     // Notificar callbacks locales (suscripciones directas)
     this.callbacks.forEach(callback => {
       try {
@@ -107,7 +126,7 @@ class TimerCore {
         console.warn('TimerCore: Error in callback', error)
       }
     })
-    
+
     // Sincronizar con otras ventanas/pestañas vía BroadcastChannel
     this.broadcastStateUpdate(stateSnapshot)
   }
@@ -122,7 +141,7 @@ class TimerCore {
           type: 'TIMER_STATE_UPDATE',
           state: state,
           timestamp: Date.now(),
-          source: 'timerCore'
+          source: 'timerCore',
         })
         console.log('TimerCore: Estado sincronizado vía BroadcastChannel')
       }
@@ -220,10 +239,10 @@ class TimerCore {
    */
   subscribe(callback: TimerCoreCallback): () => void {
     this.callbacks.add(callback)
-    
+
     // Enviar estado actual inmediatamente
     callback({ ...this.state })
-    
+
     return () => {
       this.callbacks.delete(callback)
     }
@@ -237,12 +256,12 @@ class TimerCore {
       clearInterval(this.intervalId)
       this.intervalId = null
     }
-    
+
     if (this.broadcastChannel) {
       this.broadcastChannel.close()
       this.broadcastChannel = null
     }
-    
+
     this.callbacks.clear()
     this.isInitialized = false
     console.log('TimerCore: Disconnected')
