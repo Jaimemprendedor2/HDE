@@ -23,9 +23,11 @@ class TimerCore {
   private callbacks: Set<TimerCoreCallback> = new Set()
   private intervalId: number | null = null
   private isInitialized = false
+  private broadcastChannel: BroadcastChannel | null = null
 
   constructor() {
     this.initialize()
+    this.initializeBroadcastChannel()
   }
 
   /**
@@ -36,6 +38,18 @@ class TimerCore {
     this.startUpdateLoop()
     this.isInitialized = true
     console.log('TimerCore: Initialized with simplified logic')
+  }
+
+  /**
+   * Inicializa BroadcastChannel para sincronización entre ventanas
+   */
+  private initializeBroadcastChannel() {
+    try {
+      this.broadcastChannel = new BroadcastChannel('timer-core-sync')
+      console.log('TimerCore: BroadcastChannel inicializado para sincronización')
+    } catch (error) {
+      console.warn('TimerCore: BroadcastChannel no disponible:', error)
+    }
   }
 
   /**
@@ -80,16 +94,41 @@ class TimerCore {
   }
 
   /**
-   * Notifica a todos los callbacks
+   * Notifica a todos los callbacks y sincroniza vía BroadcastChannel
    */
   private notifyCallbacks() {
+    const stateSnapshot = { ...this.state }
+    
+    // Notificar callbacks locales (suscripciones directas)
     this.callbacks.forEach(callback => {
       try {
-        callback({ ...this.state })
+        callback(stateSnapshot)
       } catch (error) {
         console.warn('TimerCore: Error in callback', error)
       }
     })
+    
+    // Sincronizar con otras ventanas/pestañas vía BroadcastChannel
+    this.broadcastStateUpdate(stateSnapshot)
+  }
+
+  /**
+   * Publica el estado actualizado vía BroadcastChannel
+   */
+  private broadcastStateUpdate(state: TimerCoreState) {
+    try {
+      if (this.broadcastChannel) {
+        this.broadcastChannel.postMessage({
+          type: 'TIMER_STATE_UPDATE',
+          state: state,
+          timestamp: Date.now(),
+          source: 'timerCore'
+        })
+        console.log('TimerCore: Estado sincronizado vía BroadcastChannel')
+      }
+    } catch (error) {
+      console.warn('TimerCore: Error broadcasting state:', error)
+    }
   }
 
   /**
@@ -198,6 +237,12 @@ class TimerCore {
       clearInterval(this.intervalId)
       this.intervalId = null
     }
+    
+    if (this.broadcastChannel) {
+      this.broadcastChannel.close()
+      this.broadcastChannel = null
+    }
+    
     this.callbacks.clear()
     this.isInitialized = false
     console.log('TimerCore: Disconnected')

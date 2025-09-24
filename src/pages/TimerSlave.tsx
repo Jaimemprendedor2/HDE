@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { timerCore, TimerCoreState } from '../lib/timerCore'
 
 interface Stage {
@@ -24,21 +24,66 @@ export const TimerSlave: React.FC = () => {
   })
   
   const unsubscribeRef = useRef<(() => void) | null>(null)
+  const channelRef = useRef<BroadcastChannel | null>(null)
   const animationFrameRef = useRef<number>()
+  const [lastUpdateTime, setLastUpdateTime] = useState(Date.now())
 
-  // Conectar al timerCore al montar
+  // Callback estable para actualizar estado
+  const updateTimerState = useCallback((state: TimerCoreState) => {
+    setTimerState(state)
+    setLastUpdateTime(Date.now())
+    console.log('TimerSlave: Estado actualizado:', state)
+  }, [])
+
+  // Híbrido: Suscripción directa + BroadcastChannel para sincronización robusta
   useEffect(() => {
-    // Suscribirse a cambios de estado del Timer Core
-    unsubscribeRef.current = timerCore.subscribe((state) => {
-      setTimerState(state)
-    })
+    console.log('TimerSlave: Inicializando suscripción híbrida')
+    
+    // 1. Suscripción directa al timerCore (para actualizaciones inmediatas)
+    unsubscribeRef.current = timerCore.subscribe(updateTimerState)
+    
+    // 2. BroadcastChannel para sincronización entre ventanas/pestañas
+    try {
+      channelRef.current = new BroadcastChannel('timer-core-sync')
+      
+      channelRef.current.onmessage = (event) => {
+        if (event.data && event.data.type === 'TIMER_STATE_UPDATE') {
+          console.log('TimerSlave: Recibido desde BroadcastChannel:', event.data.state)
+          updateTimerState(event.data.state)
+        }
+      }
+      
+      console.log('TimerSlave: BroadcastChannel inicializado')
+    } catch (error) {
+      console.warn('TimerSlave: Error inicializando BroadcastChannel:', error)
+    }
+    
+    // 3. Obtener estado inicial desde localStorage como backup
+    try {
+      const stored = localStorage.getItem('timerCoreState')
+      if (stored) {
+        const storedState = JSON.parse(stored)
+        updateTimerState(storedState)
+        console.log('TimerSlave: Estado cargado desde localStorage')
+      }
+    } catch (error) {
+      console.warn('TimerSlave: Error cargando desde localStorage:', error)
+    }
 
     return () => {
+      // Limpiar suscripción directa
       if (unsubscribeRef.current) {
         unsubscribeRef.current()
       }
+      
+      // Limpiar BroadcastChannel
+      if (channelRef.current) {
+        channelRef.current.close()
+      }
+      
+      console.log('TimerSlave: Suscripciones limpiadas')
     }
-  }, [])
+  }, [updateTimerState])
 
   // Formatear tiempo en formato MM:SS
   const formatTime = (seconds: number) => {
@@ -120,16 +165,33 @@ export const TimerSlave: React.FC = () => {
             </div>
             
             <div className="text-left">
+              <span className="text-gray-600">Etapa actual:</span>
+              <span className="ml-2 font-medium text-orange-600">
+                #{timerState.currentStageIndex + 1}
+              </span>
+            </div>
+            
+            <div className="text-left">
+              <span className="text-gray-600">Ajustes:</span>
+              <span className={`ml-2 font-medium ${
+                timerState.adjustments === 0 ? 'text-gray-600' : 
+                timerState.adjustments > 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {timerState.adjustments > 0 ? '+' : ''}{timerState.adjustments}s
+              </span>
+            </div>
+            
+            <div className="text-left">
               <span className="text-gray-600">Última actualización:</span>
               <span className="ml-2 font-medium text-gray-900">
-                {new Date().toLocaleTimeString()}
+                {new Date(lastUpdateTime).toLocaleTimeString()}
               </span>
             </div>
             
             <div className="text-left">
               <span className="text-gray-600">Sincronización:</span>
               <span className="ml-2 font-medium text-green-600">
-                ✓ Activa
+                ✓ Híbrida (Directa + BroadcastChannel)
               </span>
             </div>
           </div>
@@ -138,7 +200,8 @@ export const TimerSlave: React.FC = () => {
         {/* Instrucciones */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-blue-800 text-sm">
-            💡 <strong>Vista espejo:</strong> Este cronómetro se sincroniza automáticamente con el cronómetro principal. 
+            💡 <strong>Vista espejo híbrida:</strong> Este cronómetro se sincroniza automáticamente con el cronómetro principal 
+            usando suscripción directa + BroadcastChannel para garantizar sincronización entre ventanas/pestañas. 
             Los controles están disponibles en la ventana principal de gestión de actividades.
           </p>
         </div>
