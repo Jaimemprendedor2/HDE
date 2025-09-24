@@ -117,7 +117,7 @@ class TimerCore {
   }
 
   /**
-   * Reinicia el cronómetro
+   * Reinicia el cronómetro (resetea todo)
    */
   reset() {
     this.state.running = false
@@ -127,6 +127,16 @@ class TimerCore {
     this.saveStateToStorage()
     this.notifyCallbacks()
     console.log('TimerCore: Reset')
+  }
+
+  /**
+   * Solo pausa el cronómetro sin resetear valores
+   */
+  pauseOnly() {
+    this.state.running = false
+    this.saveStateToStorage()
+    this.notifyCallbacks()
+    console.log('TimerCore: Paused only')
   }
 
   /**

@@ -109,7 +109,7 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
       timerCore.updateCurrentStageIndex(nextIndex)
       timerCore.updateRemainingSeconds(nextStage.duration)
       timerCore.updateAdjustments(0)
-      timerCore.reset()
+      timerCore.pauseOnly() // Solo pausar, no resetear valores
       
       console.log('TimerMaster: Estado después del cambio:', timerCore.getState())
     }
@@ -132,7 +132,7 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
       timerCore.updateCurrentStageIndex(prevIndex)
       timerCore.updateRemainingSeconds(prevStage.duration)
       timerCore.updateAdjustments(0)
-      timerCore.reset()
+      timerCore.pauseOnly() // Solo pausar, no resetear valores
       
       console.log('TimerMaster: Estado después del cambio:', timerCore.getState())
     }
