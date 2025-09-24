@@ -70,19 +70,8 @@ export const Meeting: React.FC = () => {
     }
   }
 
-  // Calcular tiempo transcurrido en tiempo real
-  const getCurrentElapsed = () => {
-    if (!timerState.running) {
-      return timerState.elapsedMs
-    }
-    
-    // Usar el timestamp del timerChannel que ya está sincronizado
-    const now = Date.now()
-    const timeSinceLastUpdate = now - (timerState.timestamp || now)
-    return timerState.elapsedMs + timeSinceLastUpdate
-  }
-
-  const currentElapsed = getCurrentElapsed()
+  // Reflejo exacto del cronómetro principal - sin cálculos propios
+  const currentElapsed = timerState.elapsedMs
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
