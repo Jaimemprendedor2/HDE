@@ -97,11 +97,21 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
     if (timerState.currentStageIndex < sortedStages.length - 1) {
       const nextIndex = timerState.currentStageIndex + 1
       const nextStage = sortedStages[nextIndex]
+      
+      console.log('TimerMaster: Cambiando a siguiente etapa:', {
+        currentIndex: timerState.currentStageIndex,
+        nextIndex,
+        nextStage: nextStage.stage_name,
+        duration: nextStage.duration
+      })
+      
       // Actualizar el Timer Core
       timerCore.updateCurrentStageIndex(nextIndex)
       timerCore.updateRemainingSeconds(nextStage.duration)
       timerCore.updateAdjustments(0)
       timerCore.reset()
+      
+      console.log('TimerMaster: Estado después del cambio:', timerCore.getState())
     }
   }
 
@@ -110,11 +120,21 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
       const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
       const prevIndex = timerState.currentStageIndex - 1
       const prevStage = sortedStages[prevIndex]
+      
+      console.log('TimerMaster: Cambiando a etapa anterior:', {
+        currentIndex: timerState.currentStageIndex,
+        prevIndex,
+        prevStage: prevStage.stage_name,
+        duration: prevStage.duration
+      })
+      
       // Actualizar el Timer Core
       timerCore.updateCurrentStageIndex(prevIndex)
       timerCore.updateRemainingSeconds(prevStage.duration)
       timerCore.updateAdjustments(0)
       timerCore.reset()
+      
+      console.log('TimerMaster: Estado después del cambio:', timerCore.getState())
     }
   }
 
