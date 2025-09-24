@@ -88,21 +88,26 @@ export const TimerSlave: React.FC = () => {
     // 💾 CAPA 3: LOCALSTORAGE POLLING (Fallback robusto)
     // - Recovery si las otras capas fallan
     // - Persistencia entre reinicios
+    // - SOLO se activa cuando no hay updates recientes de BroadcastChannel
     const storagePolling = setInterval(() => {
       if (isActive) {
         try {
           const stored = localStorage.getItem('timerCoreState')
           if (stored) {
             const storedState = JSON.parse(stored)
-            // Siempre actualizar desde localStorage - es la fuente de verdad persistente
-            updateStateFromSource(storedState, 'storage')
+            // Solo usar localStorage si no hay updates recientes de BroadcastChannel
+            const timeSinceLastUpdate = Date.now() - syncStatus.lastUpdate
+            if (timeSinceLastUpdate > 2000 || syncStatus.source === 'storage') {
+              console.log('TimerSlave: Usando localStorage como fallback (sin updates recientes)')
+              updateStateFromSource(storedState, 'storage')
+            }
           }
         } catch (error) {
           console.warn('TimerSlave: Error en Capa 3 (localStorage):', error)
         }
       }
-    }, 500) // Polling cada 500ms para máxima responsividad
-    console.log('TimerSlave: Capa 3 (localStorage polling) - ✅ Inicializada')
+    }, 2000) // Reducir frecuencia a 2 segundos para evitar competencia
+    console.log('TimerSlave: Capa 3 (localStorage polling) - ✅ Inicializada como fallback')
 
     // 🔍 CAPA 4: HEALTH CHECK Y AUTO-RECOVERY
     // - Detecta desconexiones
