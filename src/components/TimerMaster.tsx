@@ -88,7 +88,9 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
     if (currentStage) {
       // Actualizar el Timer Core con la duración de la etapa actual
       timerCore.updateRemainingSeconds(currentStage.duration)
-      timerCore.reset()
+      timerCore.updateAdjustments(0) // Resetear ajustes
+      timerCore.pauseOnly() // Solo pausar, no resetear valores
+      console.log('TimerMaster: Reset a duración de etapa:', currentStage.stage_name, currentStage.duration)
     }
   }
 
@@ -141,17 +143,43 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
   const handleAdd30 = () => {
     const newAdjustments = timerState.adjustments + 30
     timerCore.updateAdjustments(newAdjustments)
-    // Sumar 30 segundos al tiempo restante actual
-    const newRemaining = Math.max(0, timerState.remainingSeconds + 30)
-    timerCore.updateRemainingSeconds(newRemaining)
+    
+    if (timerState.running) {
+      // Si está corriendo, sumar 30 segundos al tiempo actual
+      const newRemaining = Math.max(0, timerState.remainingSeconds + 30)
+      timerCore.updateRemainingSeconds(newRemaining)
+    } else {
+      // Si está detenido, cuadrar a múltiplos de 30 segundos
+      const currentStage = getCurrentStage()
+      if (currentStage) {
+        const baseDuration = currentStage.duration
+        const totalDuration = baseDuration + newAdjustments
+        const roundedDuration = Math.ceil(totalDuration / 30) * 30 // Redondear hacia arriba a múltiplos de 30
+        timerCore.updateRemainingSeconds(roundedDuration)
+        console.log('TimerMaster: Cuadrado a múltiplo de 30:', roundedDuration)
+      }
+    }
   }
 
   const handleSub30 = () => {
     const newAdjustments = Math.max(0, timerState.adjustments - 30)
     timerCore.updateAdjustments(newAdjustments)
-    // Restar 30 segundos al tiempo restante actual
-    const newRemaining = Math.max(0, timerState.remainingSeconds - 30)
-    timerCore.updateRemainingSeconds(newRemaining)
+    
+    if (timerState.running) {
+      // Si está corriendo, restar 30 segundos al tiempo actual
+      const newRemaining = Math.max(0, timerState.remainingSeconds - 30)
+      timerCore.updateRemainingSeconds(newRemaining)
+    } else {
+      // Si está detenido, cuadrar a múltiplos de 30 segundos
+      const currentStage = getCurrentStage()
+      if (currentStage) {
+        const baseDuration = currentStage.duration
+        const totalDuration = baseDuration + newAdjustments
+        const roundedDuration = Math.ceil(totalDuration / 30) * 30 // Redondear hacia arriba a múltiplos de 30
+        timerCore.updateRemainingSeconds(roundedDuration)
+        console.log('TimerMaster: Cuadrado a múltiplo de 30:', roundedDuration)
+      }
+    }
   }
 
   // Obtener información de la etapa actual
