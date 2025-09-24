@@ -76,8 +76,8 @@ export const Meeting: React.FC = () => {
       return timerState.elapsedMs
     }
     
-    // Calcular tiempo transcurrido desde el último timestamp
-    const now = performance.now()
+    // Usar el timestamp del timerChannel que ya está sincronizado
+    const now = Date.now()
     const timeSinceLastUpdate = now - (timerState.timestamp || now)
     return timerState.elapsedMs + timeSinceLastUpdate
   }
