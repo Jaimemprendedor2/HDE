@@ -5,7 +5,6 @@ import { SessionEvaluationForm } from '../components/SessionEvaluationForm'
 import { SessionNotesEditor } from '../components/SessionNotesEditor'
 import { StageManager } from '../components/StageManager'
 import { TimerMaster } from '../components/TimerMaster'
-import { TimerMasterDebug } from '../components/TimerMasterDebug'
 import { useTimerKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { supabase } from '../services/supabaseClient'
 import { syncChannel } from '../services/syncChannel'
@@ -172,6 +171,21 @@ export const ActivityManager: React.FC = () => {
       if (stagesError) throw stagesError
       setStages(stagesData || [])
 
+      // Si hay sesión activa, inicializar cronómetro en primera etapa
+      if (sessionData && stagesData && stagesData.length > 0) {
+        const sortedStages = [...stagesData].sort((a, b) => a.stage_order - b.stage_order)
+        const firstStage = sortedStages[0]
+        
+        // Importar timerCore dinámicamente
+        import('../lib/timerCore').then(({ timerCore }) => {
+          timerCore.updateCurrentStageIndex(0)
+          timerCore.updateRemainingSeconds(firstStage.duration)
+          timerCore.updateAdjustments(0)
+          timerCore.pauseOnly() // Asegurar que esté en pausa
+          console.log('ActivityManager: Sesión existente - Cronómetro inicializado en primera etapa:', firstStage.stage_name)
+        })
+      }
+
     } catch (err) {
       console.error('Error cargando datos:', err)
       setError(err instanceof Error ? err.message : 'Error desconocido')
@@ -208,6 +222,21 @@ export const ActivityManager: React.FC = () => {
 
       // Activar timer
       setShowTimer(true)
+
+      // Forzar cronómetro a primera etapa y pausa al iniciar directorio
+      if (stages.length > 0) {
+        const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
+        const firstStage = sortedStages[0]
+        
+        // Importar timerCore dinámicamente para evitar dependencias circulares
+        import('../lib/timerCore').then(({ timerCore }) => {
+          timerCore.updateCurrentStageIndex(0)
+          timerCore.updateRemainingSeconds(firstStage.duration)
+          timerCore.updateAdjustments(0)
+          timerCore.pauseOnly() // Asegurar que esté en pausa
+          console.log('ActivityManager: Cronómetro inicializado en primera etapa:', firstStage.stage_name, 'duración:', firstStage.duration)
+        })
+      }
 
     } catch (err) {
       console.error('Error iniciando sesión:', err)
