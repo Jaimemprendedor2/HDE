@@ -7,6 +7,13 @@ interface SyncStatus {
   isHealthy: boolean
 }
 
+interface DiagnosticState {
+  direct: TimerCoreState | null
+  broadcast: TimerCoreState | null
+  storage: TimerCoreState | null
+  final: TimerCoreState
+}
+
 export const TimerSlave: React.FC = () => {
   const [timerState, setTimerState] = useState<TimerCoreState>({
     running: false,
@@ -19,6 +26,19 @@ export const TimerSlave: React.FC = () => {
     source: 'none',
     lastUpdate: Date.now(),
     isHealthy: false
+  })
+
+  // 🩺 ESTADO DE DIAGNÓSTICO - Cada técnica por separado
+  const [diagnosticState, setDiagnosticState] = useState<DiagnosticState>({
+    direct: null,
+    broadcast: null,
+    storage: null,
+    final: {
+      running: false,
+      remainingSeconds: 0,
+      currentStageIndex: 0,
+      adjustments: 0
+    }
   })
 
   const unsubscribeRef = useRef<(() => void) | null>(null)
@@ -49,19 +69,33 @@ export const TimerSlave: React.FC = () => {
     })
   }, [])
 
+  // 🩺 FUNCIÓN DE DIAGNÓSTICO: Actualizar estado de diagnóstico
+  const updateDiagnosticState = useCallback((newState: TimerCoreState, source: 'direct' | 'broadcast' | 'storage') => {
+    setDiagnosticState(prev => {
+      const updated = { ...prev, [source]: newState }
+      
+      // Determinar cuál es la fuente final (prioridad: direct > broadcast > storage)
+      let finalSource: 'direct' | 'broadcast' | 'storage' = 'storage'
+      if (updated.direct) finalSource = 'direct'
+      else if (updated.broadcast) finalSource = 'broadcast'
+      
+      updated.final = updated[finalSource] || prev.final
+      
+      return updated
+    })
+  }, [])
+
   useEffect(() => {
     let isActive = true
     
-    console.log('TimerSlave: Inicializando arquitectura súper robusta de 4 capas')
+    console.log('TimerSlave: Inicializando arquitectura súper robusta de 4 capas con DIAGNÓSTICO')
     
     // 🏆 CAPA 1: SUSCRIPCIÓN DIRECTA AL CORE (Prioridad máxima)
-    // - 100% dependencia del timerCore
-    // - Actualizaciones instantáneas
-    // - Funciona igual que TimerMaster
     try {
       unsubscribeRef.current = timerCore.subscribe((state) => {
         if (isActive) {
           updateStateFromSource(state, 'direct')
+          updateDiagnosticState(state, 'direct')
         }
       })
       console.log('TimerSlave: Capa 1 (Suscripción directa) - ✅ Inicializada')
@@ -70,14 +104,12 @@ export const TimerSlave: React.FC = () => {
     }
 
     // 🌐 CAPA 2: BROADCASTCHANNEL MULTI-PESTAÑA (Redundancia)
-    // - Sincronización entre pestañas
-    // - Backup si la suscripción directa falla
     try {
       channelRef.current = new BroadcastChannel('timer-core-sync')
       channelRef.current.onmessage = (event) => {
         if (isActive && event.data?.type === 'TIMER_STATE_UPDATE') {
-          // Siempre actualizar desde BroadcastChannel - es la fuente de verdad entre pestañas
           updateStateFromSource(event.data.state, 'broadcast')
+          updateDiagnosticState(event.data.state, 'broadcast')
         }
       }
       console.log('TimerSlave: Capa 2 (BroadcastChannel) - ✅ Inicializada')
@@ -86,41 +118,35 @@ export const TimerSlave: React.FC = () => {
     }
 
     // 💾 CAPA 3: LOCALSTORAGE POLLING (Fallback robusto)
-    // - Recovery si las otras capas fallan
-    // - Persistencia entre reinicios
-    // - SOLO se activa cuando no hay updates recientes de BroadcastChannel
     const storagePolling = setInterval(() => {
       if (isActive) {
         try {
           const stored = localStorage.getItem('timerCoreState')
           if (stored) {
             const storedState = JSON.parse(stored)
-            // Solo usar localStorage si no hay updates recientes de BroadcastChannel
             const timeSinceLastUpdate = Date.now() - syncStatus.lastUpdate
             if (timeSinceLastUpdate > 2000 || syncStatus.source === 'storage') {
               console.log('TimerSlave: Usando localStorage como fallback (sin updates recientes)')
               updateStateFromSource(storedState, 'storage')
             }
+            // Siempre actualizar diagnóstico de storage
+            updateDiagnosticState(storedState, 'storage')
           }
         } catch (error) {
           console.warn('TimerSlave: Error en Capa 3 (localStorage):', error)
         }
       }
-    }, 2000) // Reducir frecuencia a 2 segundos para evitar competencia
+    }, 2000)
     console.log('TimerSlave: Capa 3 (localStorage polling) - ✅ Inicializada como fallback')
 
     // 🔍 CAPA 4: HEALTH CHECK Y AUTO-RECOVERY
-    // - Detecta desconexiones
-    // - Intenta reconectar automáticamente
     const healthCheck = setInterval(() => {
       if (isActive) {
         const timeSinceLastUpdate = Date.now() - syncStatus.lastUpdate
         
         if (timeSinceLastUpdate > 10000) {
-          // No hay updates por 10 segundos - marcar como unhealthy
           setSyncStatus(prev => ({ ...prev, isHealthy: false }))
           
-          // Intentar re-suscripción directa
           try {
             if (unsubscribeRef.current) {
               unsubscribeRef.current()
@@ -128,6 +154,7 @@ export const TimerSlave: React.FC = () => {
             unsubscribeRef.current = timerCore.subscribe((state) => {
               if (isActive) {
                 updateStateFromSource(state, 'direct-recovery')
+                updateDiagnosticState(state, 'direct')
               }
             })
             
@@ -137,21 +164,23 @@ export const TimerSlave: React.FC = () => {
           }
         }
       }
-    }, 5000) // Health check cada 5 segundos
+    }, 5000)
     console.log('TimerSlave: Capa 4 (Health check & Auto-recovery) - ✅ Inicializada')
 
-    // 🔄 INICIALIZACIÓN: Obtener estado inicial del timerCore
+    // 🔄 INICIALIZACIÓN
     try {
       const initialState = timerCore.getState()
       updateStateFromSource(initialState, 'initial')
+      updateDiagnosticState(initialState, 'direct')
       console.log('TimerSlave: Estado inicial obtenido del timerCore')
     } catch (error) {
-      // Fallback a localStorage si el core falla
       console.warn('TimerSlave: Error obteniendo estado inicial del timerCore:', error)
       try {
         const stored = localStorage.getItem('timerCoreState')
         if (stored) {
-          updateStateFromSource(JSON.parse(stored), 'initial-storage')
+          const storedState = JSON.parse(stored)
+          updateStateFromSource(storedState, 'initial-storage')
+          updateDiagnosticState(storedState, 'storage')
           console.log('TimerSlave: Estado inicial obtenido de localStorage')
         }
       } catch (storageError) {
@@ -168,26 +197,23 @@ export const TimerSlave: React.FC = () => {
       
       console.log('TimerSlave: Iniciando cleanup de 4 capas')
       
-      // Cleanup suscripción directa
       if (unsubscribeRef.current) {
         unsubscribeRef.current()
         console.log('TimerSlave: Capa 1 (Suscripción directa) - 🧹 Limpiada')
       }
       
-      // Cleanup BroadcastChannel
       if (channelRef.current) {
         channelRef.current.close()
         console.log('TimerSlave: Capa 2 (BroadcastChannel) - 🧹 Limpiada')
       }
       
-      // Cleanup timers
       clearInterval(storagePolling)
       clearInterval(healthCheck)
       console.log('TimerSlave: Capas 3 y 4 (Polling & Health check) - 🧹 Limpiadas')
       
       console.log('TimerSlave: Cleanup completo - Todas las capas desconectadas')
     }
-  }, [updateStateFromSource])
+  }, [updateStateFromSource, updateDiagnosticState])
 
   // Formatear tiempo en formato MM:SS
   const formatTime = (seconds: number) => {
@@ -254,7 +280,7 @@ export const TimerSlave: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl text-center">
+      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-6xl text-center">
         
         {/* Status de sincronización súper robusto */}
         <div className={`mb-6 p-4 rounded-lg border-2 transition-all duration-300 ${getStatusColor()}`}>
@@ -269,7 +295,72 @@ export const TimerSlave: React.FC = () => {
           </div>
         </div>
 
-        {/* Header con indicador de estado del cronómetro */}
+        {/* 🩺 DIAGNÓSTICO: Cada técnica de sincronización por separado */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">🩺 Diagnóstico de Sincronización</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* 🏆 CAPA 1: SUSCRIPCIÓN DIRECTA */}
+            <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+              <div className="flex items-center justify-center space-x-2 mb-3">
+                <span className="text-2xl">🏆</span>
+                <h3 className="font-bold text-green-800">Capa 1: Directa</h3>
+              </div>
+              <div className="text-4xl font-mono font-bold text-green-600 mb-2">
+                {diagnosticState.direct ? formatTime(diagnosticState.direct.remainingSeconds) : '--:--'}
+              </div>
+              <div className="text-sm text-green-700">
+                <div>Estado: {diagnosticState.direct?.running ? 'Ejecutándose' : 'Pausado'}</div>
+                <div>Etapa: #{diagnosticState.direct?.currentStageIndex + 1 || '--'}</div>
+                <div>Ajustes: {diagnosticState.direct?.adjustments || 0}s</div>
+              </div>
+              <div className="mt-2 text-xs text-green-600">
+                {diagnosticState.direct ? '✅ Activa' : '❌ Inactiva'}
+              </div>
+            </div>
+
+            {/* 🌐 CAPA 2: BROADCASTCHANNEL */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-center space-x-2 mb-3">
+                <span className="text-2xl">🌐</span>
+                <h3 className="font-bold text-blue-800">Capa 2: Broadcast</h3>
+              </div>
+              <div className="text-4xl font-mono font-bold text-blue-600 mb-2">
+                {diagnosticState.broadcast ? formatTime(diagnosticState.broadcast.remainingSeconds) : '--:--'}
+              </div>
+              <div className="text-sm text-blue-700">
+                <div>Estado: {diagnosticState.broadcast?.running ? 'Ejecutándose' : 'Pausado'}</div>
+                <div>Etapa: #{diagnosticState.broadcast?.currentStageIndex + 1 || '--'}</div>
+                <div>Ajustes: {diagnosticState.broadcast?.adjustments || 0}s</div>
+              </div>
+              <div className="mt-2 text-xs text-blue-600">
+                {diagnosticState.broadcast ? '✅ Activa' : '❌ Inactiva'}
+              </div>
+            </div>
+
+            {/* 💾 CAPA 3: LOCALSTORAGE */}
+            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+              <div className="flex items-center justify-center space-x-2 mb-3">
+                <span className="text-2xl">💾</span>
+                <h3 className="font-bold text-yellow-800">Capa 3: Storage</h3>
+              </div>
+              <div className="text-4xl font-mono font-bold text-yellow-600 mb-2">
+                {diagnosticState.storage ? formatTime(diagnosticState.storage.remainingSeconds) : '--:--'}
+              </div>
+              <div className="text-sm text-yellow-700">
+                <div>Estado: {diagnosticState.storage?.running ? 'Ejecutándose' : 'Pausado'}</div>
+                <div>Etapa: #{diagnosticState.storage?.currentStageIndex + 1 || '--'}</div>
+                <div>Ajustes: {diagnosticState.storage?.adjustments || 0}s</div>
+              </div>
+              <div className="mt-2 text-xs text-yellow-600">
+                {diagnosticState.storage ? '✅ Activa' : '❌ Inactiva'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Display principal del tiempo (ESTADO FINAL) */}
         <div className="mb-8">
           <div className="flex items-center justify-center space-x-3 mb-4">
             <div 
@@ -278,20 +369,17 @@ export const TimerSlave: React.FC = () => {
               }`}
             />
             <h1 className="text-3xl font-bold text-gray-900">
-              Cronómetro Slave
+              Cronómetro Slave (Estado Final)
             </h1>
             <div className="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded-full font-mono">
               4-Capas
             </div>
           </div>
           
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-4">
             {timerState.running ? 'Cronómetro en ejecución' : 'Cronómetro pausado'}
           </p>
-        </div>
 
-        {/* Display principal del tiempo */}
-        <div className="mb-8">
           <div 
             className={`text-8xl font-mono font-bold mb-4 transition-colors duration-300 ${
               timerState.running ? 'text-green-600' : 'text-gray-600'
@@ -300,7 +388,6 @@ export const TimerSlave: React.FC = () => {
             {formatTime(timerState.remainingSeconds)}
           </div>
           
-          {/* Indicador de estado visual */}
           <div className="flex items-center justify-center space-x-2">
             <div 
               className={`w-3 h-3 rounded-full transition-colors duration-300 ${
