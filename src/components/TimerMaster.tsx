@@ -162,7 +162,8 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
   }
 
   const handleSub30 = () => {
-    const newAdjustments = Math.max(0, timerState.adjustments - 30)
+    // Permitir ajustes negativos para poder reducir el tiempo por debajo de la duración de la etapa
+    const newAdjustments = timerState.adjustments - 30
     timerCore.updateAdjustments(newAdjustments)
     
     if (timerState.running) {
@@ -171,14 +172,14 @@ export const TimerMaster: React.FC<TimerProps> = ({ stages, isSessionActive }) =
       timerCore.updateRemainingSeconds(newRemaining)
       console.log('TimerMaster: Restando 30s (corriendo):', newRemaining)
     } else {
-      // Si está detenido, cuadrar a múltiplos de 30 segundos (mínimo 0)
+      // Si está detenido, calcular tiempo total y cuadrar a múltiplos de 30 (mínimo 0)
       const currentStage = getCurrentStage()
       if (currentStage) {
         const baseDuration = currentStage.duration
         const totalDuration = baseDuration + newAdjustments
         const roundedDuration = Math.max(0, Math.ceil(totalDuration / 30) * 30) // Mínimo 0
         timerCore.updateRemainingSeconds(roundedDuration)
-        console.log('TimerMaster: Cuadrado a múltiplo de 30 (detenido):', roundedDuration)
+        console.log('TimerMaster: Cuadrado a múltiplo de 30 (detenido):', roundedDuration, 'ajustes:', newAdjustments)
       }
     }
   }
