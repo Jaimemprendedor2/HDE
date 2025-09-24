@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { timerChannel, TimerState } from '../lib/timerChannel'
+import { timerCore, TimerCoreState } from '../lib/timerCore'
 
 interface Stage {
   id: string
@@ -16,25 +16,22 @@ interface Stage {
 }
 
 export const Meeting: React.FC = () => {
-  const [timerState, setTimerState] = useState<TimerState>({
+  const [timerState, setTimerState] = useState<TimerCoreState>({
     elapsedMs: 0,
     running: false,
-    timestamp: 0
+    timestamp: 0,
+    remainingSeconds: 0,
+    currentStageIndex: 0,
+    adjustments: 0
   })
   
   const unsubscribeRef = useRef<(() => void) | null>(null)
   const animationFrameRef = useRef<number>()
 
-  // Conectar al timerChannel al montar
+  // Conectar al timerCore al montar
   useEffect(() => {
-    // Conectar al canal del cronómetro
-    timerChannel.connect()
-    
-    // Leer estado inicial para hidratación
-    timerChannel.readInitialState()
-    
-    // Suscribirse a cambios de estado
-    unsubscribeRef.current = timerChannel.onState((state) => {
+    // Suscribirse a cambios de estado del Timer Core
+    unsubscribeRef.current = timerCore.subscribe((state) => {
       setTimerState(state)
     })
 
@@ -45,30 +42,7 @@ export const Meeting: React.FC = () => {
     }
   }, [])
 
-  // Loop de actualización usando requestAnimationFrame
-  useEffect(() => {
-    const updateDisplay = () => {
-      // El estado se actualiza automáticamente a través del callback
-      // Solo necesitamos mantener el loop activo
-      if (timerState.running) {
-        animationFrameRef.current = requestAnimationFrame(updateDisplay)
-      }
-    }
-
-    if (timerState.running) {
-      animationFrameRef.current = requestAnimationFrame(updateDisplay)
-    } else {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-    }
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-    }
-  }, [timerState.running])
+  // El componente Meeting es solo un reflejo - no necesita cálculos propios
 
   // Formatear tiempo transcurrido
   const formatTime = (milliseconds: number) => {
@@ -84,50 +58,8 @@ export const Meeting: React.FC = () => {
     }
   }
 
-  // Obtener información de las etapas desde localStorage
-  const [stages, setStages] = useState<Stage[]>([])
-  const [currentStageIndex, setCurrentStageIndex] = useState(0)
-  const [adjustments, setAdjustments] = useState(0)
-
-  // Cargar información de las etapas desde localStorage
-  useEffect(() => {
-    try {
-      const storedStages = localStorage.getItem('currentStages')
-      const storedStageIndex = localStorage.getItem('currentStageIndex')
-      const storedAdjustments = localStorage.getItem('timerAdjustments')
-      
-      if (storedStages) {
-        setStages(JSON.parse(storedStages))
-      }
-      if (storedStageIndex) {
-        setCurrentStageIndex(parseInt(storedStageIndex))
-      }
-      if (storedAdjustments) {
-        setAdjustments(parseInt(storedAdjustments))
-      }
-    } catch (error) {
-      console.warn('Error loading stage info from localStorage:', error)
-    }
-  }, [])
-
-  // Calcular tiempo restante como el cronómetro principal
-  const getCurrentStage = () => {
-    if (stages.length === 0) return null
-    const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order)
-    return sortedStages[currentStageIndex] || null
-  }
-
-  const calculateRemainingSeconds = () => {
-    const currentStage = getCurrentStage()
-    if (!currentStage) return 0
-    
-    const totalDuration = currentStage.duration + adjustments
-    const elapsedSeconds = timerState.elapsedMs / 1000
-    
-    return Math.max(0, totalDuration - elapsedSeconds)
-  }
-
-  const remainingSeconds = calculateRemainingSeconds()
+  // Reflejo exacto del cronómetro principal - usar tiempo restante del timerCore
+  const remainingSeconds = timerState.remainingSeconds
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">

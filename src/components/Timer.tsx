@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { timerChannel, TimerState } from '../lib/timerChannel'
+import { timerCore, TimerCoreState } from '../lib/timerCore'
 
 interface Stage {
   id: string
@@ -25,10 +25,13 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
   const [remainingSeconds, setRemainingSeconds] = useState(0)
   const [adjustments, setAdjustments] = useState(0)
-  const [timerState, setTimerState] = useState<TimerState>({
+  const [timerState, setTimerState] = useState<TimerCoreState>({
     elapsedMs: 0,
     running: false,
-    timestamp: 0
+    timestamp: 0,
+    remainingSeconds: 0,
+    currentStageIndex: 0,
+    adjustments: 0
   })
   
   // Referencias para el loop de actualización
@@ -51,17 +54,14 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     }
   }, [stages])
 
-  // Conectar al timerChannel al montar
+  // Conectar al timerCore al montar
   useEffect(() => {
-    // Conectar al canal del cronómetro
-    timerChannel.connect()
-    
-    // Leer estado inicial
-    timerChannel.readInitialState()
-    
-    // Suscribirse a cambios de estado
-    unsubscribeRef.current = timerChannel.onState((state) => {
+    // Suscribirse a cambios de estado del Timer Core
+    unsubscribeRef.current = timerCore.subscribe((state) => {
       setTimerState(state)
+      setCurrentStageIndex(state.currentStageIndex)
+      setAdjustments(state.adjustments)
+      setRemainingSeconds(state.remainingSeconds)
     })
 
     return () => {
@@ -71,13 +71,13 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     }
   }, [])
 
-  // Actualizar localStorage cuando cambien las variables de control
+  // Actualizar timerCore cuando cambien las variables de control
   useEffect(() => {
-    localStorage.setItem('currentStageIndex', currentStageIndex.toString())
+    timerCore.updateCurrentStageIndex(currentStageIndex)
   }, [currentStageIndex])
 
   useEffect(() => {
-    localStorage.setItem('timerAdjustments', adjustments.toString())
+    timerCore.updateAdjustments(adjustments)
   }, [adjustments])
 
   // Obtener etapa actual
@@ -102,6 +102,8 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
   const updateTimer = useCallback(() => {
     const remaining = calculateRemainingTime()
     setRemainingSeconds(remaining)
+    // Actualizar el timerCore con el tiempo restante calculado
+    timerCore.updateRemainingSeconds(remaining)
     
     // Si el tiempo se agotó, ir a la siguiente etapa o pausar
     if (remaining <= 0 && timerState.running) {
@@ -114,10 +116,10 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
         setRemainingSeconds(nextStage.duration)
         setAdjustments(0)
         // Resetear el cronómetro para la nueva etapa
-        timerChannel.reset()
+        timerCore.reset()
       } else {
         // Última etapa, pausar
-        timerChannel.pause()
+        timerCore.pause()
       }
     }
     
@@ -155,9 +157,9 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
   // Controles del timer usando timerChannel
   const handlePlayPause = () => {
     if (timerState.running) {
-      timerChannel.pause()
+      timerCore.pause()
     } else {
-      timerChannel.start()
+      timerCore.start()
     }
   }
 
@@ -166,7 +168,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
     if (currentStage) {
       setRemainingSeconds(currentStage.duration)
       setAdjustments(0)
-      timerChannel.reset()
+      timerCore.reset()
     }
   }
 
@@ -178,7 +180,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
       setCurrentStageIndex(nextIndex)
       setRemainingSeconds(nextStage.duration)
       setAdjustments(0)
-      timerChannel.reset()
+      timerCore.reset()
     }
   }
 
@@ -190,7 +192,7 @@ export const Timer: React.FC<TimerProps> = ({ stages, isSessionActive }) => {
       setCurrentStageIndex(prevIndex)
       setRemainingSeconds(prevStage.duration)
       setAdjustments(0)
-      timerChannel.reset()
+      timerCore.reset()
     }
   }
 
